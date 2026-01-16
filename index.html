@@ -92,6 +92,23 @@
         .delay-4 { animation-delay: 0.4s; opacity: 0; }
         .delay-5 { animation-delay: 0.5s; opacity: 0; }
 
+        /* Responsive Logo - Desktop: full logo, Mobile: symbol */
+        .logo-full {
+            display: block;
+        }
+        .logo-symbol {
+            display: none;
+        }
+
+        @media (max-width: 480px) {
+            .logo-full {
+                display: none;
+            }
+            .logo-symbol {
+                display: block;
+            }
+        }
+
         /* Google Places Autocomplete Dropdown Styles */
         .pac-container {
             background-color: #1f1f23 !important;
@@ -999,13 +1016,30 @@ Estimates are subject to property inspection and market conditions.`;
                     }}>
                         {/* Header */}
                         <div className="animate-in" style={{ textAlign: 'center', marginBottom: '48px' }}>
+                            {/* Full logo for desktop */}
                             <img
+                                className="logo-full"
                                 src="Zoom Casa (white).png"
                                 alt="Zoom Casa"
                                 style={{
                                     height: '60px',
                                     width: 'auto',
-                                    marginBottom: '16px'
+                                    marginBottom: '16px',
+                                    marginLeft: 'auto',
+                                    marginRight: 'auto'
+                                }}
+                            />
+                            {/* Symbol logo for mobile */}
+                            <img
+                                className="logo-symbol"
+                                src="Zoom Casa Symbol White.png"
+                                alt="Zoom Casa"
+                                style={{
+                                    height: '50px',
+                                    width: 'auto',
+                                    marginBottom: '16px',
+                                    marginLeft: 'auto',
+                                    marginRight: 'auto'
                                 }}
                             />
                             <p style={{
