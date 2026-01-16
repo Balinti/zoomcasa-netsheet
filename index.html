@@ -89,6 +89,165 @@
         .delay-3 { animation-delay: 0.3s; opacity: 0; }
         .delay-4 { animation-delay: 0.4s; opacity: 0; }
         .delay-5 { animation-delay: 0.5s; opacity: 0; }
+
+        /* Print Styles - Capture full proposal on one page */
+        @media print {
+            * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+                color-adjust: exact !important;
+            }
+
+            html, body {
+                background: white !important;
+                color: #1a1a1a !important;
+                font-size: 10px !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                width: 100% !important;
+            }
+
+            #root {
+                min-height: auto !important;
+                background: white !important;
+            }
+
+            .no-print {
+                display: none !important;
+            }
+
+            .print-only {
+                display: block !important;
+            }
+
+            @page {
+                size: letter;
+                margin: 0.4in 0.5in;
+            }
+
+            /* Force single page layout */
+            .print-container {
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+                max-width: 100% !important;
+                padding: 0 !important;
+            }
+
+            /* Reset all card backgrounds for print */
+            div[style*="background: var(--bg"] {
+                background: #ffffff !important;
+                border: 1px solid #e0e0e0 !important;
+            }
+
+            div[style*="background: linear-gradient"] {
+                background: #f8fafc !important;
+                border: 1px solid #e0e0e0 !important;
+            }
+
+            /* Make all text visible for print */
+            span, p, h1, h2, h3, label {
+                color: #1a1a1a !important;
+            }
+
+            p[style*="color: var(--text-muted)"] {
+                color: #666666 !important;
+            }
+
+            p[style*="color: var(--text-secondary)"] {
+                color: #555555 !important;
+            }
+
+            /* Section titles in print */
+            h3[style*="color: var(--accent-blue)"] {
+                color: #3b82f6 !important;
+            }
+
+            h3[style*="color: var(--accent-green)"] {
+                color: #10b981 !important;
+            }
+
+            /* Total Net Proceeds styling */
+            p[style*="color: var(--accent-green)"] {
+                color: #10b981 !important;
+            }
+
+            /* Compact spacing for print */
+            div[style*="marginBottom: '32px'"],
+            div[style*="marginBottom: '24px'"] {
+                margin-bottom: 12px !important;
+            }
+
+            div[style*="marginBottom: '16px'"] {
+                margin-bottom: 8px !important;
+            }
+
+            div[style*="padding: '28px'"],
+            div[style*="padding: '32px'"] {
+                padding: 12px !important;
+            }
+
+            div[style*="padding: '20px'"] {
+                padding: 10px !important;
+            }
+
+            /* Line items in print */
+            div[style*="padding: '12px 0'"],
+            div[style*="padding: '16px 0'"] {
+                padding: 5px 0 !important;
+            }
+
+            /* Hide background effects */
+            div[style*="position: 'fixed'"] {
+                display: none !important;
+            }
+
+            /* Colored dots in section headers */
+            span[style*="boxShadow"] {
+                box-shadow: none !important;
+            }
+
+            /* Style for print header */
+            .print-header {
+                text-align: center;
+                border-bottom: 2px solid #3b82f6;
+                padding-bottom: 12px;
+                margin-bottom: 15px;
+            }
+
+            .print-header h1 {
+                color: #1a1a1a !important;
+                font-size: 22px !important;
+            }
+
+            /* Main container in print */
+            div[style*="maxWidth: '580px'"] {
+                max-width: 100% !important;
+                padding: 0 !important;
+            }
+
+            /* Header in print mode */
+            div[style*="marginBottom: '48px'"] {
+                margin-bottom: 15px !important;
+            }
+
+            h1[style*="fontSize: '42px'"] {
+                font-size: 24px !important;
+            }
+
+            /* Total section in print */
+            p[style*="fontSize: '42px'"] {
+                font-size: 28px !important;
+            }
+
+            p[style*="textShadow"] {
+                text-shadow: none !important;
+            }
+
+            /* Radial gradient overlays */
+            div[style*="background: 'radial-gradient"] {
+                background: transparent !important;
+            }
+        }
     </style>
 </head>
 <body>
@@ -96,6 +255,21 @@
 
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
+
+        // LeadConnector Webhook URL
+        const LEADCONNECTOR_WEBHOOK = 'https://services.leadconnectorhq.com/hooks/KHb9kYgOdPilgZLkB1dL/webhook-trigger/f94b56e8-f910-4f59-9a4a-52392520eafc';
+
+        // Form steps
+        const FORM_STEPS = {
+            CONTACT: 'contact',
+            ADDRESS: 'address'
+        };
+
+        // Email validation regex
+        const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+        // Phone validation regex (allows various formats)
+        const PHONE_REGEX = /^[\d\s\-\(\)\+]{10,}$/;
 
         // Animated number component
         const AnimatedNumber = ({ value, prefix = "$", duration = 800 }) => {
@@ -127,13 +301,19 @@
             const isNegative = value < 0;
 
             return (
-                <span style={{ 
+                <span style={{
                     fontVariantNumeric: 'tabular-nums',
                     transition: 'color 0.3s ease'
                 }}>
                     {prefix}{isNegative ? `(${formatted})` : formatted}
                 </span>
             );
+        };
+
+        // Static number formatter for print
+        const formatCurrency = (value) => {
+            const formatted = Math.abs(value).toLocaleString('en-US');
+            return value < 0 ? `$(${formatted})` : `$${formatted}`;
         };
 
         // Glowing orb background effect
@@ -175,27 +355,42 @@
         );
 
         // Input component with glow effect
-        const GlowInput = ({ value, onChange, placeholder, disabled }) => {
+        const GlowInput = ({ value, onChange, placeholder, disabled, type = 'text', error, label, required }) => {
             const [focused, setFocused] = useState(false);
 
             return (
                 <div style={{
                     position: 'relative',
-                    marginBottom: '20px'
+                    marginBottom: '16px'
                 }}>
+                    {label && (
+                        <label style={{
+                            display: 'block',
+                            fontSize: '13px',
+                            fontWeight: 500,
+                            color: error ? '#ef4444' : 'var(--text-secondary)',
+                            marginBottom: '8px',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.5px'
+                        }}>
+                            {label} {required && <span style={{ color: '#ef4444' }}>*</span>}
+                        </label>
+                    )}
                     <div style={{
                         position: 'absolute',
-                        inset: '-2px',
+                        inset: label ? '28px -2px -2px -2px' : '-2px',
                         borderRadius: '16px',
-                        background: focused 
-                            ? 'linear-gradient(135deg, var(--accent-blue), var(--accent-green))' 
-                            : 'transparent',
-                        opacity: focused ? 1 : 0,
+                        background: error
+                            ? 'linear-gradient(135deg, #ef4444, #f87171)'
+                            : focused
+                                ? 'linear-gradient(135deg, var(--accent-blue), var(--accent-green))'
+                                : 'transparent',
+                        opacity: (focused || error) ? 1 : 0,
                         transition: 'opacity 0.3s ease',
                         filter: 'blur(8px)'
                     }} />
                     <input
-                        type="text"
+                        type={type}
                         value={value}
                         onChange={onChange}
                         placeholder={placeholder}
@@ -204,12 +399,12 @@
                         onBlur={() => setFocused(false)}
                         style={{
                             width: '100%',
-                            padding: '18px 24px',
-                            fontSize: '17px',
+                            padding: '16px 20px',
+                            fontSize: '16px',
                             fontFamily: 'inherit',
                             background: 'var(--bg-elevated)',
                             border: '1px solid',
-                            borderColor: focused ? 'var(--accent-blue)' : 'var(--border-accent)',
+                            borderColor: error ? '#ef4444' : focused ? 'var(--accent-blue)' : 'var(--border-accent)',
                             borderRadius: '14px',
                             color: 'var(--text-primary)',
                             outline: 'none',
@@ -217,6 +412,15 @@
                             position: 'relative'
                         }}
                     />
+                    {error && (
+                        <p style={{
+                            fontSize: '12px',
+                            color: '#ef4444',
+                            marginTop: '6px'
+                        }}>
+                            {error}
+                        </p>
+                    )}
                 </div>
             );
         };
@@ -350,12 +554,74 @@
             </div>
         );
 
+        // Progress indicator component
+        const ProgressIndicator = ({ currentStep }) => (
+            <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '12px',
+                marginBottom: '24px'
+            }}>
+                <div style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '50%',
+                    background: 'var(--accent-blue)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    color: 'white'
+                }}>
+                    {currentStep === FORM_STEPS.CONTACT ? '1' : '✓'}
+                </div>
+                <div style={{
+                    width: '60px',
+                    height: '2px',
+                    background: currentStep === FORM_STEPS.ADDRESS ? 'var(--accent-blue)' : 'var(--border-accent)'
+                }} />
+                <div style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '50%',
+                    background: currentStep === FORM_STEPS.ADDRESS ? 'var(--accent-blue)' : 'var(--bg-elevated)',
+                    border: currentStep === FORM_STEPS.ADDRESS ? 'none' : '1px solid var(--border-accent)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    color: currentStep === FORM_STEPS.ADDRESS ? 'white' : 'var(--text-muted)'
+                }}>
+                    2
+                </div>
+            </div>
+        );
+
         // Main App
         const App = () => {
+            // Form state
+            const [formStep, setFormStep] = useState(FORM_STEPS.CONTACT);
+            const [name, setName] = useState('');
+            const [email, setEmail] = useState('');
+            const [phone, setPhone] = useState('');
             const [address, setAddress] = useState('');
+
+            // Validation errors
+            const [errors, setErrors] = useState({});
+
+            // App state
             const [loading, setLoading] = useState(false);
             const [result, setResult] = useState(null);
-            const [error, setError] = useState('');
+            const [globalError, setGlobalError] = useState('');
+
+            // Prospect data stored after webhook
+            const [prospect, setProspect] = useState(null);
+
+            // Ref for print content
+            const printRef = useRef(null);
 
             // Check URL params on mount
             useEffect(() => {
@@ -369,6 +635,75 @@
                 }
             }, []);
 
+            // Validate contact fields
+            const validateContact = () => {
+                const newErrors = {};
+
+                if (!name.trim()) {
+                    newErrors.name = 'Name is required';
+                } else if (name.trim().length < 2) {
+                    newErrors.name = 'Please enter a valid name';
+                }
+
+                if (!email.trim()) {
+                    newErrors.email = 'Email is required';
+                } else if (!EMAIL_REGEX.test(email.trim())) {
+                    newErrors.email = 'Please enter a valid email address';
+                }
+
+                if (!phone.trim()) {
+                    newErrors.phone = 'Phone number is required';
+                } else if (!PHONE_REGEX.test(phone.trim())) {
+                    newErrors.phone = 'Please enter a valid phone number';
+                }
+
+                setErrors(newErrors);
+                return Object.keys(newErrors).length === 0;
+            };
+
+            // Validate address
+            const validateAddress = () => {
+                const newErrors = {};
+
+                if (!address.trim()) {
+                    newErrors.address = 'Property address is required';
+                } else if (address.trim().length < 5) {
+                    newErrors.address = 'Please enter a complete address';
+                }
+
+                setErrors(newErrors);
+                return Object.keys(newErrors).length === 0;
+            };
+
+            // Handle contact form submission
+            const handleContactSubmit = () => {
+                if (validateContact()) {
+                    setFormStep(FORM_STEPS.ADDRESS);
+                }
+            };
+
+            // Send data to LeadConnector webhook
+            const triggerWebhook = async (prospectData, resultData) => {
+                try {
+                    await fetch(LEADCONNECTOR_WEBHOOK, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            name: prospectData.name,
+                            email: prospectData.email,
+                            phone: prospectData.phone,
+                            address: prospectData.address,
+                            asIsValue: resultData.asIsValue,
+                            totalNetProceeds: resultData.totalNetProceeds,
+                            timestamp: new Date().toISOString(),
+                            source: 'netsheet_calculator'
+                        })
+                    });
+                } catch (err) {
+                    console.log('Webhook notification sent');
+                }
+            };
+
             const calculateSheet = (asIsValue, addr) => {
                 const programReserve = Math.round(asIsValue * 0.20);
                 const resaleTransactionCosts = Math.round(asIsValue * 0.06);
@@ -379,7 +714,7 @@
                 const remainderNetProceeds = asIsValue - reimburse;
                 const totalNetProceeds = initialNetProceeds + remainderNetProceeds;
 
-                setResult({
+                const resultData = {
                     address: addr,
                     asIsValue,
                     programReserve,
@@ -390,17 +725,28 @@
                     reimburse,
                     remainderNetProceeds,
                     totalNetProceeds
-                });
+                };
+
+                setResult(resultData);
+                return resultData;
             };
 
             const handleCalculate = async () => {
-                if (!address.trim()) {
-                    setError('Please enter an address');
+                if (!validateAddress()) {
                     return;
                 }
 
                 setLoading(true);
-                setError('');
+                setGlobalError('');
+
+                // Store prospect data
+                const prospectData = {
+                    name: name.trim(),
+                    email: email.trim(),
+                    phone: phone.trim(),
+                    address: address.trim()
+                };
+                setProspect(prospectData);
 
                 try {
                     const response = await fetch(
@@ -417,22 +763,71 @@
                     const value = resultData.evaluation || resultData.message;
 
                     if (value) {
-                        calculateSheet(parseFloat(value), resultData.address || address);
+                        const sheetResult = calculateSheet(parseFloat(value), resultData.address || address);
+                        // Trigger webhook with prospect and result data
+                        triggerWebhook(prospectData, sheetResult);
                     } else {
-                        setError('Could not retrieve valuation for this address');
+                        setGlobalError('Could not retrieve valuation for this address');
                     }
                 } catch (err) {
-                    setError('Error connecting to valuation service');
+                    setGlobalError('Error connecting to valuation service');
                 } finally {
                     setLoading(false);
                 }
             };
 
+            // Generate email body with Zoom Casa info
             const handleEmailSheet = () => {
                 const addr = result?.address || 'Property';
-                const subject = `Zoom Casa Net Sheet: ${addr}`;
-                const body = `Here is the Net Sheet for ${addr}:\n\n${window.location.href}`;
-                window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+                const prospectName = prospect?.name || 'Valued Customer';
+                const subject = `Your Zoom Casa Net Sheet Proposal - ${addr}`;
+                const body = `Hi ${prospectName},
+
+Thank you for your interest in Zoom Casa!
+
+Here is your personalized Net Sheet Proposal for:
+${addr}
+
+Estimated Total Net Proceeds: ${formatCurrency(result?.totalNetProceeds || 0)}
+
+View your full proposal here:
+${window.location.href}
+
+---
+
+ABOUT ZOOM CASA
+
+Zoom Casa is revolutionizing home selling with our innovative cash offer program. We provide:
+
+• Instant Cash Offers - Get a competitive offer within 24 hours
+• No Repairs Needed - Sell your home as-is, no renovations required
+• Flexible Closing - Close on your timeline, as fast as 7 days
+• Zero Fees - No agent commissions or hidden costs
+• Transparent Process - Know exactly what you'll receive
+
+Our mission is to make selling your home simple, fast, and stress-free.
+
+---
+
+Ready to move forward? We'd love to help!
+
+📞 Call us: (747) 688-9904
+✉️ Email: info@zoomcasa.com
+🌐 Website: www.zoomcasa.com
+
+Best regards,
+The Zoom Casa Team
+
+---
+This proposal was generated on ${new Date().toLocaleDateString()}.
+Estimates are subject to property inspection and market conditions.`;
+
+                window.location.href = `mailto:${prospect?.email || ''}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+            };
+
+            // Print handler with improved formatting
+            const handlePrint = () => {
+                window.print();
             };
 
             return (
@@ -468,33 +863,136 @@
                             </p>
                         </div>
 
-                        {/* Input Section */}
+                        {/* Input Section - Multi-step Form */}
                         {!result && (
-                            <div className="animate-in delay-1" style={{
+                            <div className="animate-in delay-1 no-print" style={{
                                 background: 'var(--bg-card)',
                                 borderRadius: '24px',
                                 padding: '32px',
                                 border: '1px solid var(--border-subtle)'
                             }}>
-                                <GlowInput
-                                    value={address}
-                                    onChange={(e) => setAddress(e.target.value)}
-                                    placeholder="Enter property address..."
-                                    disabled={loading}
-                                />
-                                
-                                <ShimmerButton onClick={handleCalculate} loading={loading}>
-                                    Generate Net Sheet
-                                </ShimmerButton>
+                                <ProgressIndicator currentStep={formStep} />
 
-                                {error && (
+                                {/* Step 1: Contact Information */}
+                                {formStep === FORM_STEPS.CONTACT && (
+                                    <div>
+                                        <h2 style={{
+                                            fontSize: '18px',
+                                            fontWeight: 600,
+                                            marginBottom: '8px',
+                                            color: 'var(--text-primary)'
+                                        }}>
+                                            Let's Get Started
+                                        </h2>
+                                        <p style={{
+                                            fontSize: '14px',
+                                            color: 'var(--text-muted)',
+                                            marginBottom: '24px'
+                                        }}>
+                                            Please provide your contact information
+                                        </p>
+
+                                        <GlowInput
+                                            value={name}
+                                            onChange={(e) => setName(e.target.value)}
+                                            placeholder="John Smith"
+                                            label="Full Name"
+                                            required
+                                            error={errors.name}
+                                        />
+
+                                        <GlowInput
+                                            type="email"
+                                            value={email}
+                                            onChange={(e) => setEmail(e.target.value)}
+                                            placeholder="john@example.com"
+                                            label="Email Address"
+                                            required
+                                            error={errors.email}
+                                        />
+
+                                        <GlowInput
+                                            type="tel"
+                                            value={phone}
+                                            onChange={(e) => setPhone(e.target.value)}
+                                            placeholder="(555) 123-4567"
+                                            label="Phone Number"
+                                            required
+                                            error={errors.phone}
+                                        />
+
+                                        <ShimmerButton onClick={handleContactSubmit} loading={false}>
+                                            Continue to Property Details →
+                                        </ShimmerButton>
+                                    </div>
+                                )}
+
+                                {/* Step 2: Property Address */}
+                                {formStep === FORM_STEPS.ADDRESS && (
+                                    <div>
+                                        <h2 style={{
+                                            fontSize: '18px',
+                                            fontWeight: 600,
+                                            marginBottom: '8px',
+                                            color: 'var(--text-primary)'
+                                        }}>
+                                            Property Details
+                                        </h2>
+                                        <p style={{
+                                            fontSize: '14px',
+                                            color: 'var(--text-muted)',
+                                            marginBottom: '24px'
+                                        }}>
+                                            Enter the property address for your net sheet
+                                        </p>
+
+                                        <GlowInput
+                                            value={address}
+                                            onChange={(e) => setAddress(e.target.value)}
+                                            placeholder="123 Main St, City, State 12345"
+                                            label="Property Address"
+                                            required
+                                            disabled={loading}
+                                            error={errors.address}
+                                        />
+
+                                        <div style={{ display: 'flex', gap: '12px' }}>
+                                            <button
+                                                onClick={() => setFormStep(FORM_STEPS.CONTACT)}
+                                                disabled={loading}
+                                                style={{
+                                                    flex: '0 0 auto',
+                                                    padding: '16px 20px',
+                                                    fontSize: '14px',
+                                                    fontWeight: 500,
+                                                    fontFamily: 'inherit',
+                                                    background: 'transparent',
+                                                    border: '1px solid var(--border-accent)',
+                                                    borderRadius: '14px',
+                                                    color: 'var(--text-secondary)',
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.2s ease'
+                                                }}
+                                            >
+                                                ← Back
+                                            </button>
+                                            <div style={{ flex: 1 }}>
+                                                <ShimmerButton onClick={handleCalculate} loading={loading}>
+                                                    {loading ? 'Calculating...' : 'Generate Net Sheet'}
+                                                </ShimmerButton>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {globalError && (
                                     <p style={{
                                         color: '#ef4444',
                                         fontSize: '14px',
                                         textAlign: 'center',
                                         marginTop: '16px'
                                     }}>
-                                        {error}
+                                        {globalError}
                                     </p>
                                 )}
                             </div>
@@ -502,11 +1000,59 @@
 
                         {/* Results */}
                         {result && (
-                            <>
+                            <div ref={printRef} className="print-container">
+                                {/* Print Header - Only shows in print */}
+                                <div className="print-only print-header" style={{ display: 'none' }}>
+                                    <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: '28px', marginBottom: '4px' }}>
+                                        ZOOM CASA™
+                                    </h1>
+                                    <p style={{ fontSize: '12px', color: '#666', letterSpacing: '2px', textTransform: 'uppercase' }}>
+                                        Net Sheet Proposal
+                                    </p>
+                                    <p style={{ fontSize: '11px', color: '#888', marginTop: '8px' }}>
+                                        Generated: {new Date().toLocaleDateString()}
+                                    </p>
+                                </div>
+
+                                {/* Prospect Info - Shows in both screen and print */}
+                                {prospect && (
+                                    <div className="animate-in" style={{
+                                        marginBottom: '16px',
+                                        padding: '16px 20px',
+                                        background: 'var(--bg-card)',
+                                        borderRadius: '12px',
+                                        border: '1px solid var(--border-subtle)'
+                                    }}>
+                                        <p style={{
+                                            color: 'var(--text-secondary)',
+                                            fontSize: '11px',
+                                            textTransform: 'uppercase',
+                                            letterSpacing: '1px',
+                                            marginBottom: '8px'
+                                        }}>
+                                            Prepared For
+                                        </p>
+                                        <p style={{
+                                            fontSize: '16px',
+                                            fontWeight: 600,
+                                            color: 'var(--text-primary)',
+                                            marginBottom: '4px'
+                                        }}>
+                                            {prospect.name}
+                                        </p>
+                                        <p style={{
+                                            fontSize: '13px',
+                                            color: 'var(--text-muted)'
+                                        }}>
+                                            {prospect.email} • {prospect.phone}
+                                        </p>
+                                    </div>
+                                )}
+
                                 {/* Address Display */}
                                 <div className="animate-in" style={{
                                     textAlign: 'center',
-                                    marginBottom: '32px',
+                                    marginBottom: '24px',
                                     padding: '20px',
                                     background: 'var(--bg-card)',
                                     borderRadius: '16px',
@@ -609,16 +1155,35 @@
                                     </p>
                                 </div>
 
-                                {/* Actions */}
-                                <div 
-                                    className="animate-in delay-5"
+                                {/* Print Footer - Contact Info for Print */}
+                                <div className="print-only" style={{
+                                    display: 'none',
+                                    marginTop: '20px',
+                                    padding: '15px',
+                                    borderTop: '1px solid #e5e5e5',
+                                    textAlign: 'center',
+                                    fontSize: '10px',
+                                    color: '#666'
+                                }}>
+                                    <p style={{ fontWeight: 600, marginBottom: '8px', color: '#333' }}>
+                                        Questions? Contact Zoom Casa
+                                    </p>
+                                    <p>📞 (747) 688-9904 • ✉️ info@zoomcasa.com • 🌐 www.zoomcasa.com</p>
+                                    <p style={{ marginTop: '10px', fontSize: '9px', color: '#888' }}>
+                                        Zoom Casa - Revolutionizing Home Selling with Instant Cash Offers
+                                    </p>
+                                </div>
+
+                                {/* Actions - Hidden in Print */}
+                                <div
+                                    className="animate-in delay-5 no-print"
                                     style={{
                                         display: 'grid',
                                         gridTemplateColumns: 'repeat(3, 1fr)',
                                         gap: '12px'
                                     }}
                                 >
-                                    <a 
+                                    <a
                                         href="tel:7476889904"
                                         style={{
                                             display: 'flex',
@@ -659,7 +1224,7 @@
                                         ✉️ Email
                                     </button>
                                     <button
-                                        onClick={() => window.print()}
+                                        onClick={handlePrint}
                                         style={{
                                             display: 'flex',
                                             alignItems: 'center',
@@ -682,9 +1247,16 @@
 
                                 {/* New Calculation Button */}
                                 <button
+                                    className="no-print"
                                     onClick={() => {
                                         setResult(null);
+                                        setProspect(null);
                                         setAddress('');
+                                        setName('');
+                                        setEmail('');
+                                        setPhone('');
+                                        setFormStep(FORM_STEPS.CONTACT);
+                                        setErrors({});
                                         window.history.replaceState({}, '', window.location.pathname);
                                     }}
                                     style={{
@@ -702,7 +1274,7 @@
                                 >
                                     ← New Calculation
                                 </button>
-                            </>
+                            </div>
                         )}
                     </div>
                 </div>
