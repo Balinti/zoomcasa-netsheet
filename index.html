@@ -330,7 +330,7 @@
         const { useState, useEffect, useRef } = React;
 
         // LeadConnector Webhook URL
-        const LEADCONNECTOR_WEBHOOK = 'https://services.leadconnectorhq.com/hooks/KHb9kYgOdPilgZLkB1dL/webhook-trigger/f94b56e8-f910-4f59-9a4a-52392520eafc';
+        const LEADCONNECTOR_WEBHOOK = 'https://services.leadconnectorhq.com/hooks/KHb9kYgOdPilgZLkB1dL/webhook-trigger/7a2e3342-0d66-4704-8ba8-90f515d46a3e';
 
         // Form steps
         const FORM_STEPS = {
@@ -780,6 +780,7 @@
             const [name, setName] = useState('');
             const [email, setEmail] = useState('');
             const [phone, setPhone] = useState('');
+            const [role, setRole] = useState('');
             const [address, setAddress] = useState('');
 
             // Validation errors
@@ -830,6 +831,10 @@
                     newErrors.phone = 'Please enter a valid phone number';
                 }
 
+                if (!role) {
+                    newErrors.role = 'Please select your role';
+                }
+
                 setErrors(newErrors);
                 return Object.keys(newErrors).length === 0;
             };
@@ -865,6 +870,7 @@
                             name: prospectData.name,
                             email: prospectData.email,
                             phone: prospectData.phone,
+                            type: prospectData.type,
                             address: prospectData.address,
                             asIsValue: resultData.asIsValue,
                             totalNetProceeds: resultData.totalNetProceeds,
@@ -917,6 +923,7 @@
                     name: name.trim(),
                     email: email.trim(),
                     phone: phone.trim(),
+                    type: role,
                     address: address.trim()
                 };
                 setProspect(prospectData);
@@ -1109,6 +1116,62 @@ Estimates are subject to property inspection and market conditions.`;
                                             required
                                             error={errors.phone}
                                         />
+
+                                        <div style={{
+                                            position: 'relative',
+                                            marginBottom: '16px'
+                                        }}>
+                                            <label style={{
+                                                display: 'block',
+                                                fontSize: '13px',
+                                                fontWeight: 500,
+                                                color: errors.role ? '#ef4444' : 'var(--text-secondary)',
+                                                marginBottom: '8px',
+                                                textTransform: 'uppercase',
+                                                letterSpacing: '0.5px'
+                                            }}>
+                                                I am a <span style={{ color: '#ef4444' }}>*</span>
+                                            </label>
+                                            <select
+                                                value={role}
+                                                onChange={(e) => setRole(e.target.value)}
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '16px 20px',
+                                                    fontSize: '16px',
+                                                    fontFamily: 'inherit',
+                                                    background: 'var(--bg-elevated)',
+                                                    border: '1px solid',
+                                                    borderColor: errors.role ? '#ef4444' : 'var(--border-accent)',
+                                                    borderRadius: '14px',
+                                                    color: role ? 'var(--text-primary)' : 'var(--text-muted)',
+                                                    outline: 'none',
+                                                    transition: 'all 0.3s ease',
+                                                    position: 'relative',
+                                                    appearance: 'none',
+                                                    WebkitAppearance: 'none',
+                                                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23999' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
+                                                    backgroundRepeat: 'no-repeat',
+                                                    backgroundPosition: 'right 16px center',
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                <option value="" disabled>Select your role</option>
+                                                <option value="Owner">Owner</option>
+                                                <option value="Agent">Agent</option>
+                                                <option value="Lender">Lender</option>
+                                                <option value="Other">Other</option>
+                                            </select>
+                                            {errors.role && (
+                                                <p style={{
+                                                    fontSize: '12px',
+                                                    color: '#ef4444',
+                                                    marginTop: '6px'
+                                                }}>
+                                                    {errors.role}
+                                                </p>
+                                            )}
+                                        </div>
 
                                         <ShimmerButton onClick={handleContactSubmit} loading={false}>
                                             Continue to Property Details →
@@ -1451,6 +1514,7 @@ Estimates are subject to property inspection and market conditions.`;
                                         setName('');
                                         setEmail('');
                                         setPhone('');
+                                        setRole('');
                                         setFormStep(FORM_STEPS.CONTACT);
                                         setErrors({});
                                         window.history.replaceState({}, '', window.location.pathname);
