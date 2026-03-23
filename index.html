@@ -1477,9 +1477,12 @@ Estimates are subject to property inspection and market conditions.`;
                                                         </span>
                                                     ) : (
                                                         <input
-                                                            type="number"
-                                                            value={value || ''}
-                                                            onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
+                                                            type="text"
+                                                            value={value ? value.toLocaleString('en-US') : ''}
+                                                            onChange={(e) => {
+                                                                const raw = e.target.value.replace(/[^0-9]/g, '');
+                                                                onChange(parseInt(raw, 10) || 0);
+                                                            }}
                                                             style={{
                                                                 background: 'transparent',
                                                                 border: 'none',
