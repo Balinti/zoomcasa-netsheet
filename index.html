@@ -19,6 +19,16 @@
             box-sizing: border-box;
         }
 
+        /* Hide number input spinners */
+        input[type=number]::-webkit-outer-spin-button,
+        input[type=number]::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
+
         :root {
             --bg-primary: #0a0a0b;
             --bg-secondary: #111113;
@@ -647,7 +657,7 @@
         };
 
         // Line item row
-        const LineItem = ({ label, value, percentage, isNegative, highlight, large }) => (
+        const LineItem = ({ label, value, percentage, isNegative, highlight, large, editablePct, onPctChange }) => (
             <div style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -658,22 +668,55 @@
                 <span style={{
                     color: highlight ? 'var(--text-primary)' : 'var(--text-secondary)',
                     fontSize: large ? '18px' : '15px',
-                    fontWeight: highlight ? 600 : 400
+                    fontWeight: highlight ? 600 : 400,
+                    flex: 1,
+                    minWidth: 0
                 }}>
                     {label}
                 </span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
                     <span style={{
                         fontSize: large ? '22px' : '15px',
                         fontWeight: highlight ? 700 : 500,
-                        color: highlight 
-                            ? (isNegative ? 'var(--accent-blue)' : 'var(--accent-green)') 
+                        color: highlight
+                            ? (isNegative ? 'var(--accent-blue)' : 'var(--accent-green)')
                             : (isNegative ? 'var(--text-muted)' : 'var(--text-primary)'),
                         fontVariantNumeric: 'tabular-nums'
                     }}>
                         {value !== null ? <AnimatedNumber value={value} /> : '—'}
                     </span>
-                    {percentage && (
+                    {editablePct !== undefined && onPctChange ? (
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            background: 'var(--bg-secondary)',
+                            borderRadius: '6px',
+                            padding: '2px 6px',
+                            minWidth: '55px',
+                            border: '1px solid var(--border-accent)'
+                        }}>
+                            <input
+                                type="number"
+                                value={editablePct}
+                                onChange={(e) => onPctChange(parseFloat(e.target.value) || 0)}
+                                style={{
+                                    width: '36px',
+                                    background: 'transparent',
+                                    border: 'none',
+                                    color: 'var(--text-muted)',
+                                    fontSize: '12px',
+                                    textAlign: 'right',
+                                    outline: 'none',
+                                    fontFamily: 'inherit',
+                                    padding: 0
+                                }}
+                                step="0.5"
+                                min="0"
+                                max="100"
+                            />
+                            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>%</span>
+                        </div>
+                    ) : percentage ? (
                         <span style={{
                             fontSize: '12px',
                             color: 'var(--text-muted)',
@@ -685,7 +728,7 @@
                         }}>
                             {percentage}
                         </span>
-                    )}
+                    ) : null}
                 </div>
             </div>
         );
@@ -794,6 +837,19 @@
             // Prospect data stored after webhook
             const [prospect, setProspect] = useState(null);
 
+            // Header input fields (editable in results view)
+            const [mortgageBalance, setMortgageBalance] = useState(0);
+            const [renovationBudget, setRenovationBudget] = useState(0);
+            const [afterRepairValue, setAfterRepairValue] = useState(0);
+
+            // Editable percentages
+            const [initialAdvancePct, setInitialAdvancePct] = useState(85);
+            const [listingAgentPct, setListingAgentPct] = useState(3);
+            const [buyersAgentPct, setBuyersAgentPct] = useState(3);
+            const [resaleClosingCostsPct, setResaleClosingCostsPct] = useState(0.5);
+            const [programFeePct, setProgramFeePct] = useState(10);
+            const [closingCostsPct, setClosingCostsPct] = useState(1);
+
             // Ref for print content
             const printRef = useRef(null);
 
@@ -802,10 +858,31 @@
                 const params = new URLSearchParams(window.location.search);
                 const urlAddress = params.get('address');
                 const urlValue = params.get('value');
+                const urlMortgage = params.get('mortgage');
+                const urlRenovation = params.get('renovation');
+                const urlArv = params.get('arv');
+                const urlAdvancePct = params.get('advancePct');
+                const urlListingPct = params.get('listingPct');
+                const urlBuyerPct = params.get('buyerPct');
+                const urlResaleClosingPct = params.get('resaleClosingPct');
+                const urlProgramFeePct = params.get('programFeePct');
+                const urlClosingCostsPct = params.get('closingCostsPct');
 
                 if (urlAddress) setAddress(urlAddress);
+                if (urlMortgage) setMortgageBalance(parseFloat(urlMortgage));
+                if (urlRenovation) setRenovationBudget(parseFloat(urlRenovation));
+                if (urlAdvancePct) setInitialAdvancePct(parseFloat(urlAdvancePct));
+                if (urlListingPct) setListingAgentPct(parseFloat(urlListingPct));
+                if (urlBuyerPct) setBuyersAgentPct(parseFloat(urlBuyerPct));
+                if (urlResaleClosingPct) setResaleClosingCostsPct(parseFloat(urlResaleClosingPct));
+                if (urlProgramFeePct) setProgramFeePct(parseFloat(urlProgramFeePct));
+                if (urlClosingCostsPct) setClosingCostsPct(parseFloat(urlClosingCostsPct));
+
                 if (urlValue) {
-                    calculateSheet(parseFloat(urlValue), urlAddress || '');
+                    const asIs = parseFloat(urlValue);
+                    const arv = urlArv ? parseFloat(urlArv) : asIs;
+                    setAfterRepairValue(arv);
+                    calculateSheet(asIs, urlAddress || '', arv);
                 }
             }, []);
 
@@ -863,6 +940,12 @@
             // Send data to LeadConnector webhook
             const triggerWebhook = async (prospectData, resultData) => {
                 try {
+                    // Compute total inline since state may not have updated yet
+                    const asIs = resultData.asIsValue;
+                    const arv = resultData.afterRepairValue || asIs;
+                    const advance = Math.round(asIs * initialAdvancePct / 100);
+                    const totalNet = (advance - renovationBudget - Math.round(asIs * listingAgentPct / 100) - Math.round(asIs * buyersAgentPct / 100) - Math.round(asIs * resaleClosingCostsPct / 100) - Math.round(asIs * programFeePct / 100) - mortgageBalance - Math.round(asIs * closingCostsPct / 100)) + (arv - advance);
+
                     await fetch(LEADCONNECTOR_WEBHOOK, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -873,7 +956,8 @@
                             type: prospectData.type,
                             address: prospectData.address,
                             asIsValue: resultData.asIsValue,
-                            totalNetProceeds: resultData.totalNetProceeds,
+                            afterRepairValue: resultData.afterRepairValue,
+                            totalNetProceeds: totalNet,
                             timestamp: new Date().toISOString(),
                             source: 'netsheet_calculator'
                         })
@@ -883,32 +967,55 @@
                 }
             };
 
-            const calculateSheet = (asIsValue, addr) => {
-                const programReserve = Math.round(asIsValue * 0.20);
-                const resaleTransactionCosts = Math.round(asIsValue * 0.06);
-                const programFee = Math.round(asIsValue * 0.10);
-                const closingCosts = Math.round(asIsValue * 0.01);
-                const initialNetProceeds = asIsValue - programReserve - resaleTransactionCosts - programFee - closingCosts;
-                const reimburse = asIsValue - programReserve;
-                const remainderNetProceeds = asIsValue - reimburse;
-                const totalNetProceeds = initialNetProceeds + remainderNetProceeds;
-
+            const calculateSheet = (asIsValue, addr, arv) => {
                 const resultData = {
                     address: addr,
                     asIsValue,
-                    programReserve,
-                    resaleTransactionCosts,
-                    programFee,
-                    closingCosts,
-                    initialNetProceeds,
-                    reimburse,
-                    remainderNetProceeds,
-                    totalNetProceeds
+                    afterRepairValue: arv || asIsValue
                 };
 
                 setResult(resultData);
+                if (arv) setAfterRepairValue(arv);
                 return resultData;
             };
+
+            // Compute all derived values reactively from state
+            const computeSheet = () => {
+                if (!result) return null;
+                const asIsValue = result.asIsValue;
+                const arv = afterRepairValue || asIsValue;
+                const initialAdvance = Math.round(asIsValue * initialAdvancePct / 100);
+                const listingAgentCost = Math.round(asIsValue * listingAgentPct / 100);
+                const buyersAgentCost = Math.round(asIsValue * buyersAgentPct / 100);
+                const resaleClosingCosts = Math.round(asIsValue * resaleClosingCostsPct / 100);
+                const programFee = Math.round(asIsValue * programFeePct / 100);
+                const mortgage = mortgageBalance;
+                const closingCosts = Math.round(asIsValue * closingCostsPct / 100);
+                const renovation = renovationBudget;
+
+                const initialNetProceeds = initialAdvance - renovation - listingAgentCost - buyersAgentCost - resaleClosingCosts - programFee - mortgage - closingCosts;
+                const reimburse = initialAdvance;
+                const additionalNetProceeds = arv - reimburse;
+                const totalNetProceeds = initialNetProceeds + additionalNetProceeds;
+
+                return {
+                    initialAdvance,
+                    listingAgentCost,
+                    buyersAgentCost,
+                    resaleClosingCosts,
+                    programFee,
+                    mortgage,
+                    closingCosts,
+                    renovation,
+                    initialNetProceeds,
+                    reimburse,
+                    additionalNetProceeds,
+                    totalNetProceeds,
+                    arv
+                };
+            };
+
+            const computed = computeSheet();
 
             const handleCalculate = async () => {
                 if (!validateAddress()) {
@@ -943,7 +1050,9 @@
                     const value = resultData.evaluation || resultData.message;
 
                     if (value) {
-                        const sheetResult = calculateSheet(parseFloat(value), resultData.address || address);
+                        const asIs = parseFloat(value);
+                        if (!afterRepairValue) setAfterRepairValue(asIs);
+                        const sheetResult = calculateSheet(asIs, resultData.address || address, afterRepairValue || asIs);
                         // Trigger webhook with prospect and result data
                         triggerWebhook(prospectData, sheetResult);
                     } else {
@@ -968,7 +1077,7 @@ Thank you for your interest in Zoom Casa!
 Here is your personalized Net Sheet Proposal for:
 ${addr}
 
-Estimated Total Net Proceeds: ${formatCurrency(result?.totalNetProceeds || 0)}
+Estimated Total Net Proceeds: ${formatCurrency(computed?.totalNetProceeds || 0)}
 
 View your full proposal here:
 ${window.location.href}
@@ -1308,9 +1417,8 @@ Estimates are subject to property inspection and market conditions.`;
                                     </div>
                                 )}
 
-                                {/* Address Display */}
+                                {/* Header Fields */}
                                 <div className="animate-in" style={{
-                                    textAlign: 'center',
                                     marginBottom: '24px',
                                     padding: '20px',
                                     background: 'var(--bg-card)',
@@ -1322,37 +1430,99 @@ Estimates are subject to property inspection and market conditions.`;
                                         fontSize: '12px',
                                         textTransform: 'uppercase',
                                         letterSpacing: '1px',
-                                        marginBottom: '8px'
+                                        marginBottom: '4px'
                                     }}>
                                         Property Address
                                     </p>
                                     <p style={{
                                         fontSize: '18px',
                                         fontWeight: 600,
-                                        color: 'var(--text-primary)'
+                                        color: 'var(--text-primary)',
+                                        marginBottom: '16px'
                                     }}>
                                         {decodeURIComponent(result.address)}
                                     </p>
+                                    <div style={{
+                                        display: 'grid',
+                                        gridTemplateColumns: 'repeat(2, 1fr)',
+                                        gap: '12px'
+                                    }}>
+                                        {[
+                                            { label: 'As Is Value', value: result.asIsValue, readOnly: true },
+                                            { label: 'After Repair Value', value: afterRepairValue, onChange: (v) => setAfterRepairValue(v) },
+                                            { label: 'Mortgage Balance', value: mortgageBalance, onChange: (v) => setMortgageBalance(v) },
+                                            { label: 'Renovation Budget', value: renovationBudget, onChange: (v) => setRenovationBudget(v) }
+                                        ].map(({ label, value, onChange, readOnly }) => (
+                                            <div key={label}>
+                                                <label style={{
+                                                    display: 'block',
+                                                    fontSize: '11px',
+                                                    color: 'var(--text-muted)',
+                                                    textTransform: 'uppercase',
+                                                    letterSpacing: '0.5px',
+                                                    marginBottom: '4px'
+                                                }}>{label}</label>
+                                                <div style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    background: readOnly ? 'transparent' : 'var(--bg-elevated)',
+                                                    border: readOnly ? '1px solid var(--border-subtle)' : '1px solid var(--border-accent)',
+                                                    borderRadius: '10px',
+                                                    padding: '8px 12px'
+                                                }}>
+                                                    <span style={{ fontSize: '14px', color: 'var(--text-muted)', marginRight: '2px' }}>$</span>
+                                                    {readOnly ? (
+                                                        <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                                            {value.toLocaleString('en-US')}
+                                                        </span>
+                                                    ) : (
+                                                        <input
+                                                            type="number"
+                                                            value={value || ''}
+                                                            onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
+                                                            style={{
+                                                                background: 'transparent',
+                                                                border: 'none',
+                                                                color: 'var(--text-primary)',
+                                                                fontSize: '14px',
+                                                                fontWeight: 600,
+                                                                fontFamily: 'inherit',
+                                                                outline: 'none',
+                                                                width: '100%',
+                                                                padding: 0
+                                                            }}
+                                                            placeholder="0"
+                                                        />
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
 
                                 {/* Initial Transaction */}
+                                {computed && (
                                 <SectionCard title="Initial Transaction" titleColor="var(--accent-blue)" delay={2}>
-                                    <LineItem label="As Is Value" value={result.asIsValue} />
-                                    <LineItem label="Program Reserve" value={-result.programReserve} isNegative percentage="20%" />
-                                    <LineItem label="Reserve - Renovation Scope" value={null} />
-                                    <LineItem label="Reserve - Resale Transaction Costs" value={-result.resaleTransactionCosts} isNegative percentage="6%" />
-                                    <LineItem label="Reserve - Program Fee" value={-result.programFee} isNegative percentage="10%" />
-                                    <LineItem label="Est. Mortgage / Debt Payoff" value={null} />
-                                    <LineItem label="Closing Costs - Initial Transaction" value={-result.closingCosts} isNegative percentage="1%" />
-                                    <LineItem label="Initial Net Proceeds" value={result.initialNetProceeds} highlight large />
+                                    <LineItem label="Initial Advance" value={computed.initialAdvance} editablePct={initialAdvancePct} onPctChange={setInitialAdvancePct} />
+                                    <LineItem label="Reserve - Renovations" value={renovationBudget ? -renovationBudget : null} isNegative />
+                                    <LineItem label="Reserve - Resale Brokerage Commissions - Listing Agent" value={-computed.listingAgentCost} isNegative editablePct={listingAgentPct} onPctChange={setListingAgentPct} />
+                                    <LineItem label="Reserve - Resale Brokerage Commissions - Buyer's Agent" value={-computed.buyersAgentCost} isNegative editablePct={buyersAgentPct} onPctChange={setBuyersAgentPct} />
+                                    <LineItem label="Reserve - Closing Costs - Resale Transaction" value={-computed.resaleClosingCosts} isNegative editablePct={resaleClosingCostsPct} onPctChange={setResaleClosingCostsPct} />
+                                    <LineItem label="Reserve - Program Fee" value={-computed.programFee} isNegative editablePct={programFeePct} onPctChange={setProgramFeePct} />
+                                    <LineItem label="Est. Mortgage / Debt Payoff" value={mortgageBalance ? -mortgageBalance : null} isNegative />
+                                    <LineItem label="Closing Costs - Initial Transaction" value={-computed.closingCosts} isNegative />
+                                    <LineItem label="Initial Net Proceeds" value={computed.initialNetProceeds} highlight large />
                                 </SectionCard>
+                                )}
 
                                 {/* Resale Transaction */}
+                                {computed && (
                                 <SectionCard title="Resale Transaction" titleColor="var(--accent-green)" delay={3}>
-                                    <LineItem label="Est. Resale Price - After Repair Value" value={result.asIsValue} />
-                                    <LineItem label="Reimburse Zoom Casa Initial Advance" value={-result.reimburse} isNegative />
-                                    <LineItem label="Remainder Net Proceeds" value={result.remainderNetProceeds} highlight large />
+                                    <LineItem label="Est. Resale Price - After Repair Value" value={computed.arv} />
+                                    <LineItem label="Reimburse Zoom Casa Initial Advance" value={-computed.reimburse} isNegative />
+                                    <LineItem label="Additional Net Proceeds" value={computed.additionalNetProceeds} highlight large />
                                 </SectionCard>
+                                )}
 
                                 {/* Total */}
                                 <div 
@@ -1391,7 +1561,7 @@ Estimates are subject to property inspection and market conditions.`;
                                         position: 'relative',
                                         textShadow: '0 0 40px var(--accent-green-glow)'
                                     }}>
-                                        <AnimatedNumber value={result.totalNetProceeds} duration={1200} />
+                                        <AnimatedNumber value={computed ? computed.totalNetProceeds : 0} duration={1200} />
                                     </p>
                                 </div>
 
@@ -1515,6 +1685,15 @@ Estimates are subject to property inspection and market conditions.`;
                                         setEmail('');
                                         setPhone('');
                                         setRole('');
+                                        setMortgageBalance(0);
+                                        setRenovationBudget(0);
+                                        setAfterRepairValue(0);
+                                        setInitialAdvancePct(85);
+                                        setListingAgentPct(3);
+                                        setBuyersAgentPct(3);
+                                        setResaleClosingCostsPct(0.5);
+                                        setProgramFeePct(10);
+                                        setClosingCostsPct(1);
                                         setFormStep(FORM_STEPS.CONTACT);
                                         setErrors({});
                                         window.history.replaceState({}, '', window.location.pathname);
