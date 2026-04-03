@@ -12,9 +12,6 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <!-- Google Places API for Address Autocomplete -->
     <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyClHMIIMq5MUlAQVZsdgt8jDt4CbRMly44&libraries=places&callback=Function.prototype" async></script>
-    <!-- html2canvas + jsPDF for PDF generation -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -1081,44 +1078,53 @@
                 }
             };
 
-            // Generate PDF of the net sheet and open email
-            const handleEmailSheet = async () => {
-                const addr = result?.address || 'Property';
+            // Open email with full net sheet details in the body
+            const handleEmailSheet = () => {
+                const addr = decodeURIComponent(result?.address || 'Property');
                 const prospectName = prospect?.name || 'Valued Customer';
+                const c = computed || {};
 
-                // Generate PDF from the net sheet
-                if (printRef.current && window.html2canvas && window.jspdf) {
-                    try {
-                        const canvas = await html2canvas(printRef.current, {
-                            backgroundColor: '#0a0a0f',
-                            scale: 2,
-                            useCORS: true,
-                            logging: false
-                        });
-                        const imgData = canvas.toDataURL('image/png');
-                        const { jsPDF } = window.jspdf;
-                        const pdf = new jsPDF('p', 'mm', 'a4');
-                        const pdfWidth = pdf.internal.pageSize.getWidth();
-                        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-                        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-                        pdf.save(`Zoom-Casa-Net-Sheet-${decodeURIComponent(addr).replace(/[^a-zA-Z0-9]/g, '-')}.pdf`);
-                    } catch (err) {
-                        console.error('PDF generation failed:', err);
-                    }
-                }
-
-                // Open mailto after a short delay so PDF download completes first
-                const subject = `Your Zoom Casa Net Sheet Proposal - ${decodeURIComponent(addr)}`;
+                const subject = `Your Zoom Casa Net Sheet Proposal - ${addr}`;
                 const body = `Hi ${prospectName},
 
 Thank you for your interest in Zoom Casa!
 
 Here is your personalized Net Sheet Proposal for:
-${decodeURIComponent(addr)}
+${addr}
 
-Estimated Total Net Proceeds: ${formatCurrency(computed?.totalNetProceeds || 0)}
+========================================
+PROPERTY DETAILS
+========================================
+As-Is Value: ${formatCurrency(result?.asIsValue || 0)}
+After Repair Value: ${formatCurrency(afterRepairValue || 0)}
+Mortgage Balance: ${formatCurrency(mortgageBalance || 0)}
+Renovation Budget: ${formatCurrency(renovationBudget || 0)}
 
-Please find the attached Net Sheet PDF for your records.
+========================================
+INITIAL TRANSACTION
+========================================
+Est. Initial Advance (${initialAdvancePct}%): ${formatCurrency(c.initialAdvance || 0)}
+Reserve - Renovations: ${renovationBudget ? '-' + formatCurrency(renovationBudget) : 'N/A'}
+Reserve - Listing Agent (${listingAgentPct}%): -${formatCurrency(c.listingAgentCost || 0)}
+Reserve - Buyer's Agent (${buyersAgentPct}%): -${formatCurrency(c.buyersAgentCost || 0)}
+Reserve - Closing Costs Resale (${resaleClosingCostsPct}%): -${formatCurrency(c.resaleClosingCosts || 0)}
+Reserve - Program Fee (${programFeePct}%): -${formatCurrency(c.programFee || 0)}
+Est. Mortgage / Debt Payoff: ${mortgageBalance ? '-' + formatCurrency(mortgageBalance) : 'N/A'}
+Closing Costs - Initial Transaction: -${formatCurrency(c.closingCosts || 0)}
+
+>>> Est. Initial Net Proceeds: ${formatCurrency(c.initialNetProceeds || 0)}
+
+========================================
+RESALE TRANSACTION
+========================================
+Est. Resale Price (ARV): ${formatCurrency(c.arv || 0)}
+Reimburse Zoom Casa Initial Advance: -${formatCurrency(c.reimburse || 0)}
+
+>>> Additional Net Proceeds: ${formatCurrency(c.additionalNetProceeds || 0)}
+
+========================================
+TOTAL NET PROCEEDS: ${formatCurrency(c.totalNetProceeds || 0)}
+========================================
 
 ---
 
@@ -1133,11 +1139,10 @@ The Zoom Casa Team
 
 ---
 This proposal was generated on ${new Date().toLocaleDateString()}.
+Initial Estimate - Schedule a Meeting for Final Figures.
 Estimates are subject to property inspection and market conditions.`;
 
-                setTimeout(() => {
-                    window.open(`mailto:${prospect?.email || ''}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_self');
-                }, 500);
+                window.location.href = `mailto:${prospect?.email || ''}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
             };
 
 
