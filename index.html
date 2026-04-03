@@ -12,6 +12,9 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <!-- Google Places API for Address Autocomplete -->
     <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyClHMIIMq5MUlAQVZsdgt8jDt4CbRMly44&libraries=places&callback=Function.prototype" async></script>
+    <!-- html2canvas + jsPDF for PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -457,6 +460,10 @@
                 autocompleteRef.current.addListener('place_changed', () => {
                     const place = autocompleteRef.current.getPlace();
                     if (place.formatted_address) {
+                        // Set value directly on the input to avoid React controlled input conflict
+                        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+                        nativeInputValueSetter.call(inputRef.current, place.formatted_address);
+                        inputRef.current.dispatchEvent(new Event('input', { bubbles: true }));
                         onChange({ target: { value: place.formatted_address } });
                     }
                 });
@@ -1065,44 +1072,52 @@
                 }
             };
 
-            // Generate email body with Zoom Casa info
-            const handleEmailSheet = () => {
+            // Generate PDF of the net sheet and open email
+            const handleEmailSheet = async () => {
                 const addr = result?.address || 'Property';
                 const prospectName = prospect?.name || 'Valued Customer';
-                const subject = `Your Zoom Casa Net Sheet Proposal - ${addr}`;
+
+                // Generate PDF from the net sheet
+                if (printRef.current && window.html2canvas && window.jspdf) {
+                    try {
+                        const canvas = await html2canvas(printRef.current, {
+                            backgroundColor: '#0a0a0f',
+                            scale: 2,
+                            useCORS: true,
+                            logging: false
+                        });
+                        const imgData = canvas.toDataURL('image/png');
+                        const { jsPDF } = window.jspdf;
+                        const pdf = new jsPDF('p', 'mm', 'a4');
+                        const pdfWidth = pdf.internal.pageSize.getWidth();
+                        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+                        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+                        pdf.save(`Zoom-Casa-Net-Sheet-${decodeURIComponent(addr).replace(/[^a-zA-Z0-9]/g, '-')}.pdf`);
+                    } catch (err) {
+                        console.error('PDF generation failed:', err);
+                    }
+                }
+
+                // Open mailto
+                const subject = `Your Zoom Casa Net Sheet Proposal - ${decodeURIComponent(addr)}`;
                 const body = `Hi ${prospectName},
 
 Thank you for your interest in Zoom Casa!
 
 Here is your personalized Net Sheet Proposal for:
-${addr}
+${decodeURIComponent(addr)}
 
 Estimated Total Net Proceeds: ${formatCurrency(computed?.totalNetProceeds || 0)}
 
-View your full proposal here:
-${window.location.href}
-
----
-
-ABOUT ZOOM CASA
-
-Zoom Casa is revolutionizing home selling with our innovative cash offer program. We provide:
-
-• Instant Cash Offers - Get a competitive offer within 24 hours
-• No Repairs Needed - Sell your home as-is, no renovations required
-• Flexible Closing - Close on your timeline, as fast as 7 days
-• Zero Fees - No agent commissions or hidden costs
-• Transparent Process - Know exactly what you'll receive
-
-Our mission is to make selling your home simple, fast, and stress-free.
+Please find the attached Net Sheet PDF for your records.
 
 ---
 
 Ready to move forward? We'd love to help!
 
-📞 Call us: (747) 688-9904
-✉️ Email: info@zoomcasa.com
-🌐 Website: www.zoomcasa.com
+Call us: (747) 688-9904
+Email: info@zoomcasa.com
+Website: www.zoomcasa.com
 
 Best regards,
 The Zoom Casa Team
@@ -1114,10 +1129,6 @@ Estimates are subject to property inspection and market conditions.`;
                 window.location.href = `mailto:${prospect?.email || ''}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
             };
 
-            // Print handler with improved formatting
-            const handlePrint = () => {
-                window.print();
-            };
 
             return (
                 <div style={{ position: 'relative', minHeight: '100vh' }}>
@@ -1417,6 +1428,25 @@ Estimates are subject to property inspection and market conditions.`;
                                     </div>
                                 )}
 
+                                {/* Initial Estimate Disclaimer */}
+                                <div className="animate-in" style={{
+                                    marginBottom: '16px',
+                                    padding: '12px 20px',
+                                    background: 'rgba(59, 130, 246, 0.08)',
+                                    borderRadius: '10px',
+                                    border: '1px solid rgba(59, 130, 246, 0.2)',
+                                    textAlign: 'center'
+                                }}>
+                                    <p style={{
+                                        fontSize: '13px',
+                                        fontWeight: 600,
+                                        color: 'var(--accent-blue)',
+                                        letterSpacing: '0.5px'
+                                    }}>
+                                        Initial Estimate - Schedule a Meeting for Final Figures
+                                    </p>
+                                </div>
+
                                 {/* Header Fields */}
                                 <div className="animate-in" style={{
                                     marginBottom: '24px',
@@ -1506,7 +1536,7 @@ Estimates are subject to property inspection and market conditions.`;
                                 {/* Initial Transaction */}
                                 {computed && (
                                 <SectionCard title="Initial Transaction" titleColor="var(--accent-blue)" delay={2}>
-                                    <LineItem label="Initial Advance" value={computed.initialAdvance} editablePct={initialAdvancePct} onPctChange={setInitialAdvancePct} />
+                                    <LineItem label="Est. Initial Advance" value={computed.initialAdvance} editablePct={initialAdvancePct} onPctChange={setInitialAdvancePct} />
                                     <LineItem label="Reserve - Renovations" value={renovationBudget ? -renovationBudget : null} isNegative />
                                     <LineItem label="Reserve - Resale Brokerage Commissions - Listing Agent" value={-computed.listingAgentCost} isNegative editablePct={listingAgentPct} onPctChange={setListingAgentPct} />
                                     <LineItem label="Reserve - Resale Brokerage Commissions - Buyer's Agent" value={-computed.buyersAgentCost} isNegative editablePct={buyersAgentPct} onPctChange={setBuyersAgentPct} />
@@ -1514,7 +1544,7 @@ Estimates are subject to property inspection and market conditions.`;
                                     <LineItem label="Reserve - Program Fee" value={-computed.programFee} isNegative editablePct={programFeePct} onPctChange={setProgramFeePct} />
                                     <LineItem label="Est. Mortgage / Debt Payoff" value={mortgageBalance ? -mortgageBalance : null} isNegative />
                                     <LineItem label="Closing Costs - Initial Transaction" value={-computed.closingCosts} isNegative />
-                                    <LineItem label="Initial Net Proceeds" value={computed.initialNetProceeds} highlight large />
+                                    <LineItem label="Est. Initial Net Proceeds" value={computed.initialNetProceeds} highlight large />
                                 </SectionCard>
                                 )}
 
@@ -1635,8 +1665,10 @@ Estimates are subject to property inspection and market conditions.`;
                                     >
                                         📞 Call
                                     </a>
-                                    <button
-                                        onClick={handleEmailSheet}
+                                    <a
+                                        href="https://api.xtract.ai/widget/booking/dtRPSJLdtmaR3H0xNtPT"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
                                         style={{
                                             display: 'flex',
                                             alignItems: 'center',
@@ -1647,16 +1679,16 @@ Estimates are subject to property inspection and market conditions.`;
                                             border: 'none',
                                             borderRadius: '12px',
                                             color: 'white',
+                                            textDecoration: 'none',
                                             fontSize: '14px',
                                             fontWeight: 500,
-                                            cursor: 'pointer',
                                             transition: 'all 0.2s ease'
                                         }}
                                     >
-                                        ✉️ Email
-                                    </button>
+                                        📅 Book an Appointment
+                                    </a>
                                     <button
-                                        onClick={handlePrint}
+                                        onClick={handleEmailSheet}
                                         style={{
                                             display: 'flex',
                                             alignItems: 'center',
@@ -1673,7 +1705,7 @@ Estimates are subject to property inspection and market conditions.`;
                                             transition: 'all 0.2s ease'
                                         }}
                                     >
-                                        🖨️ Print
+                                        ✉️ Email
                                     </button>
                                 </div>
 
