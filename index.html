@@ -445,6 +445,15 @@
             const [focused, setFocused] = useState(false);
             const inputRef = useRef(null);
             const autocompleteRef = useRef(null);
+            const onChangeRef = useRef(onChange);
+            onChangeRef.current = onChange;
+
+            // Sync external value into uncontrolled input when it changes (e.g. reset)
+            useEffect(() => {
+                if (inputRef.current && inputRef.current.value !== value) {
+                    inputRef.current.value = value;
+                }
+            }, [value]);
 
             useEffect(() => {
                 if (!inputRef.current || !window.google?.maps?.places) return;
@@ -456,15 +465,15 @@
                     fields: ['formatted_address', 'address_components', 'geometry']
                 });
 
-                // Listen for place selection
+                // Listen for place selection - Google writes directly to the DOM input,
+                // so we read from it after a tick to get the full address
                 autocompleteRef.current.addListener('place_changed', () => {
                     const place = autocompleteRef.current.getPlace();
                     if (place.formatted_address) {
-                        // Set value directly on the input to avoid React controlled input conflict
-                        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-                        nativeInputValueSetter.call(inputRef.current, place.formatted_address);
-                        inputRef.current.dispatchEvent(new Event('input', { bubbles: true }));
-                        onChange({ target: { value: place.formatted_address } });
+                        // Let Google finish writing to the input, then sync to React state
+                        setTimeout(() => {
+                            onChangeRef.current({ target: { value: place.formatted_address } });
+                        }, 0);
                     }
                 });
 
@@ -473,7 +482,7 @@
                         window.google.maps.event.clearInstanceListeners(autocompleteRef.current);
                     }
                 };
-            }, [onChange]);
+            }, []);
 
             return (
                 <div style={{
@@ -509,7 +518,7 @@
                     <input
                         ref={inputRef}
                         type="text"
-                        value={value}
+                        defaultValue={value}
                         onChange={onChange}
                         placeholder={placeholder}
                         disabled={disabled}
@@ -1098,7 +1107,7 @@
                     }
                 }
 
-                // Open mailto
+                // Open mailto after a short delay so PDF download completes first
                 const subject = `Your Zoom Casa Net Sheet Proposal - ${decodeURIComponent(addr)}`;
                 const body = `Hi ${prospectName},
 
@@ -1126,7 +1135,9 @@ The Zoom Casa Team
 This proposal was generated on ${new Date().toLocaleDateString()}.
 Estimates are subject to property inspection and market conditions.`;
 
-                window.location.href = `mailto:${prospect?.email || ''}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+                setTimeout(() => {
+                    window.open(`mailto:${prospect?.email || ''}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_self');
+                }, 500);
             };
 
 
