@@ -867,6 +867,7 @@
             // Carrying costs
             const [monthlyMortgagePayment, setMonthlyMortgagePayment] = useState(0);
             const [monthlyCarryingCosts, setMonthlyCarryingCosts] = useState(0);
+            const [monthsToSell, setMonthsToSell] = useState(3);
 
             // Ref for print content
             const printRef = useRef(null);
@@ -973,7 +974,7 @@
                     const advance = Math.round(asIs * initialAdvancePct / 100);
                     const programFeeBase = Math.round(asIs * programFeeBasePct / 100);
                     const programFeeCarry = Math.round(asIs * programFeeCarryPct / 100);
-                    const unusedCarryCredit = Math.round(programFeeCarry * (2 / 5));
+                    const unusedCarryCredit = Math.round(programFeeCarry * ((5 - monthsToSell) / 5));
                     const totalNet = (advance - renovationBudget - Math.round(asIs * listingAgentPct / 100) - Math.round(asIs * buyersAgentPct / 100) - Math.round(asIs * resaleClosingCostsPct / 100) - programFeeBase - programFeeCarry - mortgageBalance - Math.round(asIs * closingCostsPct / 100)) + (arv - advance + unusedCarryCredit);
 
                     await fetch(LEADCONNECTOR_WEBHOOK, {
@@ -1027,7 +1028,7 @@
 
                 const initialNetProceeds = initialAdvance - renovation - listingAgentCost - buyersAgentCost - resaleClosingCosts - programFeeBase - programFeeCarry - mortgage - closingCosts;
                 const reimburse = initialAdvance;
-                const unusedCarryCredit = Math.round(programFeeCarry * (2 / 5));
+                const unusedCarryCredit = Math.round(programFeeCarry * ((5 - monthsToSell) / 5));
                 const additionalNetProceeds = arv - reimburse + unusedCarryCredit;
                 const totalNetProceeds = initialNetProceeds + additionalNetProceeds;
 
@@ -1151,7 +1152,7 @@ SALE #2 - CASH OFFER PLUS
 ========================================
 Est. Resale Price (ARV): ${formatCurrency(c.arv || 0)}
 Reimburse Zoom Casa Initial Advance: -${formatCurrency(c.reimburse || 0)}
-Credit - Unused Carry Program Fee (2/5): +${formatCurrency(c.unusedCarryCredit || 0)}
+Credit - Unused Carry Program Fee (${5 - monthsToSell}/5): +${formatCurrency(c.unusedCarryCredit || 0)}
 
 >>> Additional Net Proceeds: ${formatCurrency(c.additionalNetProceeds || 0)}
 
@@ -1619,7 +1620,7 @@ Initial Estimate - Schedule a Meeting for Final Figures.`;
                                 <SectionCard title="Sale #2 - Cash Offer Plus" titleColor="var(--accent-green)" delay={3}>
                                     <LineItem label="Est. Resale Price - After Repair Value" value={computed.arv} />
                                     <LineItem label="Reimburse Zoom Casa Initial Advance" value={-computed.reimburse} isNegative />
-                                    <LineItem label="Credit - Unused Carry Program Fee" value={computed.unusedCarryCredit} percentage="2/5" />
+                                    <LineItem label="Credit - Unused Carry Program Fee" value={computed.unusedCarryCredit} percentage={`${5 - monthsToSell}/5`} />
                                     <LineItem label="Additional Net Proceeds" value={computed.additionalNetProceeds} highlight large />
                                 </SectionCard>
                                 )}
@@ -1725,6 +1726,56 @@ Initial Estimate - Schedule a Meeting for Final Figures.`;
                                 </SectionCard>
                                 )}
 
+                                {/* Months to Sell */}
+                                <div
+                                    className="animate-in delay-5"
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        padding: '16px 20px',
+                                        background: 'var(--bg-card)',
+                                        borderRadius: '12px',
+                                        marginBottom: '16px',
+                                        border: '1px solid var(--border-subtle)'
+                                    }}
+                                >
+                                    <span style={{
+                                        fontSize: '13px',
+                                        fontWeight: 500,
+                                        color: 'var(--text-secondary)',
+                                        textTransform: 'uppercase',
+                                        letterSpacing: '0.5px'
+                                    }}>
+                                        Est. Months to Sell
+                                    </span>
+                                    <select
+                                        value={monthsToSell}
+                                        onChange={(e) => setMonthsToSell(parseInt(e.target.value))}
+                                        style={{
+                                            padding: '8px 32px 8px 12px',
+                                            fontSize: '14px',
+                                            fontWeight: 600,
+                                            fontFamily: 'inherit',
+                                            background: 'var(--bg-elevated)',
+                                            border: '1px solid var(--border-accent)',
+                                            borderRadius: '8px',
+                                            color: 'var(--text-primary)',
+                                            outline: 'none',
+                                            cursor: 'pointer',
+                                            appearance: 'none',
+                                            WebkitAppearance: 'none',
+                                            backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23999' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
+                                            backgroundRepeat: 'no-repeat',
+                                            backgroundPosition: 'right 10px center'
+                                        }}
+                                    >
+                                        {[1,2,3,4,5,6,7,8].map(m => (
+                                            <option key={m} value={m}>{m} month{m > 1 ? 's' : ''}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
                                 {/* Disclaimer */}
                                 <div 
                                     className="animate-in delay-5"
@@ -1752,7 +1803,7 @@ Initial Estimate - Schedule a Meeting for Final Figures.`;
                                     }}>
                                         <li>This net sheet is an estimate only and is not a guarantee of final proceeds. Actual amounts may vary based on property inspection, title search, market conditions, and other factors discovered during due diligence.</li>
                                         <li>All reserves shown are held in escrow and applied toward their designated purpose. Unused portions of any reserve (except the Program Fee) are returned to the seller at resale closing.</li>
-                                        <li>The Carry Program Fee assumes a 5-month hold period. If the property resells sooner, the unused carry portion is credited back to the seller on a pro-rata basis (shown as "Credit - Unused Carry Program Fee").</li>
+                                        <li>The Carry Program Fee assumes a 5-month hold period. Based on an estimated {monthsToSell}-month sale, the unused carry portion ({5 - monthsToSell}/5) is credited back to the seller on a pro-rata basis (shown as "Credit - Unused Carry Program Fee").</li>
                                     </ul>
                                 </div>
 
@@ -1871,6 +1922,7 @@ Initial Estimate - Schedule a Meeting for Final Figures.`;
                                         setClosingCostsPct(1);
                                         setMonthlyMortgagePayment(0);
                                         setMonthlyCarryingCosts(0);
+                                        setMonthsToSell(3);
                                         setFormStep(FORM_STEPS.CONTACT);
                                         setErrors({});
                                         window.history.replaceState({}, '', window.location.pathname);
