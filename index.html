@@ -859,9 +859,14 @@
             const [initialAdvancePct, setInitialAdvancePct] = useState(85);
             const [listingAgentPct, setListingAgentPct] = useState(3);
             const [buyersAgentPct, setBuyersAgentPct] = useState(3);
-            const [resaleClosingCostsPct, setResaleClosingCostsPct] = useState(0.5);
-            const [programFeePct, setProgramFeePct] = useState(10);
+            const [resaleClosingCostsPct, setResaleClosingCostsPct] = useState(1);
+            const [programFeeBasePct, setProgramFeeBasePct] = useState(5);
+            const [programFeeCarryPct, setProgramFeeCarryPct] = useState(5);
             const [closingCostsPct, setClosingCostsPct] = useState(1);
+
+            // Carrying costs
+            const [monthlyMortgagePayment, setMonthlyMortgagePayment] = useState(0);
+            const [monthlyCarryingCosts, setMonthlyCarryingCosts] = useState(0);
 
             // Ref for print content
             const printRef = useRef(null);
@@ -878,7 +883,8 @@
                 const urlListingPct = params.get('listingPct');
                 const urlBuyerPct = params.get('buyerPct');
                 const urlResaleClosingPct = params.get('resaleClosingPct');
-                const urlProgramFeePct = params.get('programFeePct');
+                const urlProgramFeeBasePct = params.get('programFeeBasePct');
+                const urlProgramFeeCarryPct = params.get('programFeeCarryPct');
                 const urlClosingCostsPct = params.get('closingCostsPct');
 
                 if (urlAddress) setAddress(urlAddress);
@@ -888,7 +894,8 @@
                 if (urlListingPct) setListingAgentPct(parseFloat(urlListingPct));
                 if (urlBuyerPct) setBuyersAgentPct(parseFloat(urlBuyerPct));
                 if (urlResaleClosingPct) setResaleClosingCostsPct(parseFloat(urlResaleClosingPct));
-                if (urlProgramFeePct) setProgramFeePct(parseFloat(urlProgramFeePct));
+                if (urlProgramFeeBasePct) setProgramFeeBasePct(parseFloat(urlProgramFeeBasePct));
+                if (urlProgramFeeCarryPct) setProgramFeeCarryPct(parseFloat(urlProgramFeeCarryPct));
                 if (urlClosingCostsPct) setClosingCostsPct(parseFloat(urlClosingCostsPct));
 
                 if (urlValue) {
@@ -957,7 +964,10 @@
                     const asIs = resultData.asIsValue;
                     const arv = resultData.afterRepairValue || asIs;
                     const advance = Math.round(asIs * initialAdvancePct / 100);
-                    const totalNet = (advance - renovationBudget - Math.round(asIs * listingAgentPct / 100) - Math.round(asIs * buyersAgentPct / 100) - Math.round(asIs * resaleClosingCostsPct / 100) - Math.round(asIs * programFeePct / 100) - mortgageBalance - Math.round(asIs * closingCostsPct / 100)) + (arv - advance);
+                    const programFeeBase = Math.round(asIs * programFeeBasePct / 100);
+                    const programFeeCarry = Math.round(asIs * programFeeCarryPct / 100);
+                    const unusedCarryCredit = Math.round(programFeeCarry * (2 / 5));
+                    const totalNet = (advance - renovationBudget - Math.round(asIs * listingAgentPct / 100) - Math.round(asIs * buyersAgentPct / 100) - Math.round(asIs * resaleClosingCostsPct / 100) - programFeeBase - programFeeCarry - mortgageBalance - Math.round(asIs * closingCostsPct / 100)) + (arv - advance + unusedCarryCredit);
 
                     await fetch(LEADCONNECTOR_WEBHOOK, {
                         method: 'POST',
@@ -998,33 +1008,45 @@
                 const asIsValue = result.asIsValue;
                 const arv = afterRepairValue || asIsValue;
                 const initialAdvance = Math.round(asIsValue * initialAdvancePct / 100);
+                const riskReservePremium = asIsValue - initialAdvance;
                 const listingAgentCost = Math.round(asIsValue * listingAgentPct / 100);
                 const buyersAgentCost = Math.round(asIsValue * buyersAgentPct / 100);
                 const resaleClosingCosts = Math.round(asIsValue * resaleClosingCostsPct / 100);
-                const programFee = Math.round(asIsValue * programFeePct / 100);
+                const programFeeBase = Math.round(asIsValue * programFeeBasePct / 100);
+                const programFeeCarry = Math.round(asIsValue * programFeeCarryPct / 100);
                 const mortgage = mortgageBalance;
                 const closingCosts = Math.round(asIsValue * closingCostsPct / 100);
                 const renovation = renovationBudget;
 
-                const initialNetProceeds = initialAdvance - renovation - listingAgentCost - buyersAgentCost - resaleClosingCosts - programFee - mortgage - closingCosts;
+                const initialNetProceeds = initialAdvance - renovation - listingAgentCost - buyersAgentCost - resaleClosingCosts - programFeeBase - programFeeCarry - mortgage - closingCosts;
                 const reimburse = initialAdvance;
-                const additionalNetProceeds = arv - reimburse;
+                const unusedCarryCredit = Math.round(programFeeCarry * (2 / 5));
+                const additionalNetProceeds = arv - reimburse + unusedCarryCredit;
                 const totalNetProceeds = initialNetProceeds + additionalNetProceeds;
+
+                // Carrying costs
+                const monthlyTotal = monthlyMortgagePayment + monthlyCarryingCosts;
+                const fiveMonthTotal = monthlyTotal * 5;
 
                 return {
                     initialAdvance,
+                    riskReservePremium,
                     listingAgentCost,
                     buyersAgentCost,
                     resaleClosingCosts,
-                    programFee,
+                    programFeeBase,
+                    programFeeCarry,
                     mortgage,
                     closingCosts,
                     renovation,
                     initialNetProceeds,
                     reimburse,
+                    unusedCarryCredit,
                     additionalNetProceeds,
                     totalNetProceeds,
-                    arv
+                    arv,
+                    monthlyTotal,
+                    fiveMonthTotal
                 };
             };
 
@@ -1101,30 +1123,49 @@ Mortgage Balance: ${formatCurrency(mortgageBalance || 0)}
 Renovation Budget: ${formatCurrency(renovationBudget || 0)}
 
 ========================================
-INITIAL TRANSACTION
+SALE #1 - CASH OFFER
 ========================================
+Current As-Is Market Value: ${formatCurrency(result?.asIsValue || 0)}
+Risk Reserve Premium (${(100 - initialAdvancePct).toFixed(1)}%): -${formatCurrency(c.riskReservePremium || 0)}
 Est. Initial Advance (${initialAdvancePct}%): ${formatCurrency(c.initialAdvance || 0)}
 Reserve - Renovations: ${renovationBudget ? '-' + formatCurrency(renovationBudget) : 'N/A'}
 Reserve - Listing Agent (${listingAgentPct}%): -${formatCurrency(c.listingAgentCost || 0)}
 Reserve - Buyer's Agent (${buyersAgentPct}%): -${formatCurrency(c.buyersAgentCost || 0)}
 Reserve - Closing Costs Resale (${resaleClosingCostsPct}%): -${formatCurrency(c.resaleClosingCosts || 0)}
-Reserve - Program Fee (${programFeePct}%): -${formatCurrency(c.programFee || 0)}
+Reserve - Program Fee Base (${programFeeBasePct}%): -${formatCurrency(c.programFeeBase || 0)}
+Reserve - Program Fee Carry (${programFeeCarryPct}%): -${formatCurrency(c.programFeeCarry || 0)}
 Est. Mortgage / Debt Payoff: ${mortgageBalance ? '-' + formatCurrency(mortgageBalance) : 'N/A'}
 Closing Costs - Initial Transaction: -${formatCurrency(c.closingCosts || 0)}
 
 >>> Est. Initial Net Proceeds: ${formatCurrency(c.initialNetProceeds || 0)}
 
 ========================================
-RESALE TRANSACTION
+SALE #2 - CASH OFFER PLUS
 ========================================
 Est. Resale Price (ARV): ${formatCurrency(c.arv || 0)}
 Reimburse Zoom Casa Initial Advance: -${formatCurrency(c.reimburse || 0)}
+Credit - Unused Carry Program Fee (2/5): +${formatCurrency(c.unusedCarryCredit || 0)}
 
 >>> Additional Net Proceeds: ${formatCurrency(c.additionalNetProceeds || 0)}
 
 ========================================
 TOTAL NET PROCEEDS: ${formatCurrency(c.totalNetProceeds || 0)}
 ========================================
+
+========================================
+CURRENT CARRYING COSTS (SELLER)
+========================================
+Monthly Mortgage Payment: ${formatCurrency(monthlyMortgagePayment || 0)}
+Monthly Carrying Costs (taxes/utilities/insurance): ${formatCurrency(monthlyCarryingCosts || 0)}
+Monthly Total: ${formatCurrency(c.monthlyTotal || 0)}
+5-Month Total Carrying Costs: ${formatCurrency(c.fiveMonthTotal || 0)}
+
+---
+
+DISCLAIMER:
+- This net sheet is an estimate only and is not a guarantee of final proceeds. Actual amounts may vary based on property inspection, title search, market conditions, and other factors discovered during due diligence.
+- All reserves shown are held in escrow and applied toward their designated purpose. Unused portions of any reserve (except the Program Fee) are returned to the seller at resale closing.
+- The Carry Program Fee assumes a 5-month hold period. If the property resells sooner, the unused carry portion is credited back to the seller on a pro-rata basis.
 
 ---
 
@@ -1139,8 +1180,7 @@ The Zoom Casa Team
 
 ---
 This proposal was generated on ${new Date().toLocaleDateString()}.
-Initial Estimate - Schedule a Meeting for Final Figures.
-Estimates are subject to property inspection and market conditions.`;
+Initial Estimate - Schedule a Meeting for Final Figures.`;
 
                 window.location.href = `mailto:${prospect?.email || ''}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
             };
@@ -1551,13 +1591,16 @@ Estimates are subject to property inspection and market conditions.`;
 
                                 {/* Initial Transaction */}
                                 {computed && (
-                                <SectionCard title="Initial Transaction" titleColor="var(--accent-blue)" delay={2}>
+                                <SectionCard title="Sale #1 - Cash Offer" titleColor="var(--accent-blue)" delay={2}>
+                                    <LineItem label="Current As-Is Market Value" value={result.asIsValue} />
+                                    <LineItem label="Risk Reserve Premium" value={-computed.riskReservePremium} isNegative percentage={`${(100 - initialAdvancePct).toFixed(1)}%`} />
                                     <LineItem label="Est. Initial Advance" value={computed.initialAdvance} editablePct={initialAdvancePct} onPctChange={setInitialAdvancePct} />
                                     <LineItem label="Reserve - Renovations" value={renovationBudget ? -renovationBudget : null} isNegative />
                                     <LineItem label="Reserve - Resale Brokerage Commissions - Listing Agent" value={-computed.listingAgentCost} isNegative editablePct={listingAgentPct} onPctChange={setListingAgentPct} />
                                     <LineItem label="Reserve - Resale Brokerage Commissions - Buyer's Agent" value={-computed.buyersAgentCost} isNegative editablePct={buyersAgentPct} onPctChange={setBuyersAgentPct} />
                                     <LineItem label="Reserve - Closing Costs - Resale Transaction" value={-computed.resaleClosingCosts} isNegative editablePct={resaleClosingCostsPct} onPctChange={setResaleClosingCostsPct} />
-                                    <LineItem label="Reserve - Program Fee" value={-computed.programFee} isNegative editablePct={programFeePct} onPctChange={setProgramFeePct} />
+                                    <LineItem label="Reserve - Program Fee (Base)" value={-computed.programFeeBase} isNegative editablePct={programFeeBasePct} onPctChange={setProgramFeeBasePct} />
+                                    <LineItem label="Reserve - Program Fee (Carry)" value={-computed.programFeeCarry} isNegative editablePct={programFeeCarryPct} onPctChange={setProgramFeeCarryPct} />
                                     <LineItem label="Est. Mortgage / Debt Payoff" value={mortgageBalance ? -mortgageBalance : null} isNegative />
                                     <LineItem label="Closing Costs - Initial Transaction" value={-computed.closingCosts} isNegative />
                                     <LineItem label="Est. Initial Net Proceeds" value={computed.initialNetProceeds} highlight large />
@@ -1566,9 +1609,10 @@ Estimates are subject to property inspection and market conditions.`;
 
                                 {/* Resale Transaction */}
                                 {computed && (
-                                <SectionCard title="Resale Transaction" titleColor="var(--accent-green)" delay={3}>
+                                <SectionCard title="Sale #2 - Cash Offer Plus" titleColor="var(--accent-green)" delay={3}>
                                     <LineItem label="Est. Resale Price - After Repair Value" value={computed.arv} />
                                     <LineItem label="Reimburse Zoom Casa Initial Advance" value={-computed.reimburse} isNegative />
+                                    <LineItem label="Credit - Unused Carry Program Fee" value={computed.unusedCarryCredit} percentage="2/5" />
                                     <LineItem label="Additional Net Proceeds" value={computed.additionalNetProceeds} highlight large />
                                 </SectionCard>
                                 )}
@@ -1614,6 +1658,66 @@ Estimates are subject to property inspection and market conditions.`;
                                     </p>
                                 </div>
 
+                                {/* Carrying Costs Section */}
+                                {computed && (
+                                <SectionCard title="Current Carrying Costs (Seller)" titleColor="var(--accent-gold)" delay={5}>
+                                    <div style={{
+                                        display: 'grid',
+                                        gridTemplateColumns: 'repeat(2, 1fr)',
+                                        gap: '12px',
+                                        marginBottom: '16px'
+                                    }}>
+                                        {[
+                                            { label: 'Monthly Mortgage Payment', value: monthlyMortgagePayment, onChange: (v) => setMonthlyMortgagePayment(v) },
+                                            { label: 'Monthly Carrying Costs', value: monthlyCarryingCosts, onChange: (v) => setMonthlyCarryingCosts(v) }
+                                        ].map(({ label, value, onChange }) => (
+                                            <div key={label}>
+                                                <label style={{
+                                                    display: 'block',
+                                                    fontSize: '11px',
+                                                    color: 'var(--text-muted)',
+                                                    textTransform: 'uppercase',
+                                                    letterSpacing: '0.5px',
+                                                    marginBottom: '4px'
+                                                }}>{label}</label>
+                                                <div style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    background: 'var(--bg-elevated)',
+                                                    border: '1px solid var(--border-accent)',
+                                                    borderRadius: '10px',
+                                                    padding: '8px 12px'
+                                                }}>
+                                                    <span style={{ fontSize: '14px', color: 'var(--text-muted)', marginRight: '2px' }}>$</span>
+                                                    <input
+                                                        type="text"
+                                                        value={value ? value.toLocaleString('en-US') : ''}
+                                                        onChange={(e) => {
+                                                            const raw = e.target.value.replace(/[^0-9]/g, '');
+                                                            onChange(parseInt(raw, 10) || 0);
+                                                        }}
+                                                        style={{
+                                                            background: 'transparent',
+                                                            border: 'none',
+                                                            color: 'var(--text-primary)',
+                                                            fontSize: '14px',
+                                                            fontWeight: 600,
+                                                            fontFamily: 'inherit',
+                                                            outline: 'none',
+                                                            width: '100%',
+                                                            padding: 0
+                                                        }}
+                                                        placeholder="0"
+                                                    />
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <LineItem label="Monthly Total" value={computed.monthlyTotal} />
+                                    <LineItem label="5-Month Total Carrying Costs" value={computed.fiveMonthTotal} highlight large />
+                                </SectionCard>
+                                )}
+
                                 {/* Disclaimer */}
                                 <div 
                                     className="animate-in delay-5"
@@ -1627,10 +1731,22 @@ Estimates are subject to property inspection and market conditions.`;
                                     <p style={{
                                         fontSize: '11px',
                                         color: 'var(--text-muted)',
-                                        lineHeight: 1.6
+                                        lineHeight: 1.6,
+                                        marginBottom: '8px'
                                     }}>
-                                        <strong style={{ color: 'var(--text-secondary)' }}>Disclaimer:</strong> This proposal is for discussion purposes only. All figures are estimates and subject to change. Terms and conditions apply. Not all properties qualify. This assumes resale within 6 months and excludes carrying costs.
+                                        <strong style={{ color: 'var(--text-secondary)' }}>Disclaimer:</strong>
                                     </p>
+                                    <ul style={{
+                                        fontSize: '11px',
+                                        color: 'var(--text-muted)',
+                                        lineHeight: 1.8,
+                                        paddingLeft: '18px',
+                                        margin: 0
+                                    }}>
+                                        <li>This net sheet is an estimate only and is not a guarantee of final proceeds. Actual amounts may vary based on property inspection, title search, market conditions, and other factors discovered during due diligence.</li>
+                                        <li>All reserves shown are held in escrow and applied toward their designated purpose. Unused portions of any reserve (except the Program Fee) are returned to the seller at resale closing.</li>
+                                        <li>The Carry Program Fee assumes a 5-month hold period. If the property resells sooner, the unused carry portion is credited back to the seller on a pro-rata basis (shown as "Credit - Unused Carry Program Fee").</li>
+                                    </ul>
                                 </div>
 
                                 {/* Print Footer - Contact Info for Print */}
@@ -1742,9 +1858,12 @@ Estimates are subject to property inspection and market conditions.`;
                                         setInitialAdvancePct(85);
                                         setListingAgentPct(3);
                                         setBuyersAgentPct(3);
-                                        setResaleClosingCostsPct(0.5);
-                                        setProgramFeePct(10);
+                                        setResaleClosingCostsPct(1);
+                                        setProgramFeeBasePct(5);
+                                        setProgramFeeCarryPct(5);
                                         setClosingCostsPct(1);
+                                        setMonthlyMortgagePayment(0);
+                                        setMonthlyCarryingCosts(0);
                                         setFormStep(FORM_STEPS.CONTACT);
                                         setErrors({});
                                         window.history.replaceState({}, '', window.location.pathname);
