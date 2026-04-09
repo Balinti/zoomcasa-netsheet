@@ -896,6 +896,13 @@
                 if (urlResaleClosingPct) setResaleClosingCostsPct(parseFloat(urlResaleClosingPct));
                 if (urlProgramFeeBasePct) setProgramFeeBasePct(parseFloat(urlProgramFeeBasePct));
                 if (urlProgramFeeCarryPct) setProgramFeeCarryPct(parseFloat(urlProgramFeeCarryPct));
+                // Backwards compat: old programFeePct split evenly into base/carry
+                const urlProgramFeePctLegacy = params.get('programFeePct');
+                if (urlProgramFeePctLegacy && !urlProgramFeeBasePct && !urlProgramFeeCarryPct) {
+                    const half = parseFloat(urlProgramFeePctLegacy) / 2;
+                    setProgramFeeBasePct(half);
+                    setProgramFeeCarryPct(half);
+                }
                 if (urlClosingCostsPct) setClosingCostsPct(parseFloat(urlClosingCostsPct));
 
                 if (urlValue) {
