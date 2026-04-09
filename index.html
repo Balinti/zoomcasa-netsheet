@@ -683,11 +683,14 @@
                     fontSize: large ? '18px' : '15px',
                     fontWeight: highlight ? 600 : 400,
                     flex: 1,
-                    minWidth: 0
+                    minWidth: 0,
+                    paddingRight: '12px',
+                    wordWrap: 'break-word',
+                    overflowWrap: 'break-word'
                 }}>
                     {label}
                 </span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0, whiteSpace: 'nowrap', textAlign: 'right' }}>
                     <span style={{
                         fontSize: large ? '22px' : '15px',
                         fontWeight: highlight ? 700 : 500,
