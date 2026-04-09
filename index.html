@@ -1601,13 +1601,13 @@ Initial Estimate - Schedule a Meeting for Final Figures.`;
                                 <SectionCard title="Sale #1 - Cash Offer" titleColor="var(--accent-blue)" delay={2}>
                                     <LineItem label="Current As-Is Market Value" value={result.asIsValue} />
                                     <LineItem label="Risk Reserve Premium" value={-computed.riskReservePremium} isNegative percentage={`${(100 - initialAdvancePct).toFixed(1)}%`} />
-                                    <LineItem label="Est. Initial Advance" value={computed.initialAdvance} editablePct={initialAdvancePct} onPctChange={setInitialAdvancePct} />
+                                    <LineItem label="Est. Initial Advance" value={computed.initialAdvance} percentage={`${initialAdvancePct}%`} />
                                     <LineItem label="Reserve - Renovations" value={renovationBudget ? -renovationBudget : null} isNegative />
-                                    <LineItem label="Reserve - Resale Brokerage Commissions - Listing Agent" value={-computed.listingAgentCost} isNegative editablePct={listingAgentPct} onPctChange={setListingAgentPct} />
-                                    <LineItem label="Reserve - Resale Brokerage Commissions - Buyer's Agent" value={-computed.buyersAgentCost} isNegative editablePct={buyersAgentPct} onPctChange={setBuyersAgentPct} />
-                                    <LineItem label="Reserve - Closing Costs - Resale Transaction" value={-computed.resaleClosingCosts} isNegative editablePct={resaleClosingCostsPct} onPctChange={setResaleClosingCostsPct} />
-                                    <LineItem label="Reserve - Program Fee (Base)" value={-computed.programFeeBase} isNegative editablePct={programFeeBasePct} onPctChange={setProgramFeeBasePct} />
-                                    <LineItem label="Reserve - Program Fee (Carry)" value={-computed.programFeeCarry} isNegative editablePct={programFeeCarryPct} onPctChange={setProgramFeeCarryPct} />
+                                    <LineItem label="Reserve - Resale Brokerage Commissions - Listing Agent" value={-computed.listingAgentCost} isNegative percentage={`${listingAgentPct}%`} />
+                                    <LineItem label="Reserve - Resale Brokerage Commissions - Buyer's Agent" value={-computed.buyersAgentCost} isNegative percentage={`${buyersAgentPct}%`} />
+                                    <LineItem label="Reserve - Closing Costs - Resale Transaction" value={-computed.resaleClosingCosts} isNegative percentage={`${resaleClosingCostsPct}%`} />
+                                    <LineItem label="Reserve - Program Fee (Base)" value={-computed.programFeeBase} isNegative percentage={`${programFeeBasePct}%`} />
+                                    <LineItem label="Reserve - Program Fee (Carry)" value={-computed.programFeeCarry} isNegative percentage={`${programFeeCarryPct}%`} />
                                     <LineItem label="Est. Mortgage / Debt Payoff" value={mortgageBalance ? -mortgageBalance : null} isNegative />
                                     <LineItem label="Closing Costs - Initial Transaction" value={-computed.closingCosts} isNegative />
                                     <LineItem label="Est. Initial Net Proceeds" value={computed.initialNetProceeds} highlight large />
