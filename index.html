@@ -701,50 +701,51 @@
                     }}>
                         {value !== null ? <AnimatedNumber value={value} /> : '—'}
                     </span>
-                    {editablePct !== undefined && onPctChange ? (
-                        <div style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            background: 'var(--bg-secondary)',
-                            borderRadius: '6px',
-                            padding: '2px 6px',
-                            minWidth: '55px',
-                            border: '1px solid var(--border-accent)'
-                        }}>
-                            <input
-                                type="number"
-                                value={editablePct}
-                                onChange={(e) => onPctChange(parseFloat(e.target.value) || 0)}
-                                style={{
-                                    width: '36px',
-                                    background: 'transparent',
-                                    border: 'none',
-                                    color: 'var(--text-muted)',
-                                    fontSize: '12px',
-                                    textAlign: 'right',
-                                    outline: 'none',
-                                    fontFamily: 'inherit',
-                                    padding: 0
-                                }}
-                                step="0.5"
-                                min="0"
-                                max="100"
-                            />
-                            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>%</span>
-                        </div>
-                    ) : percentage ? (
-                        <span style={{
-                            fontSize: '12px',
-                            color: 'var(--text-muted)',
-                            background: 'var(--bg-secondary)',
-                            padding: '4px 8px',
-                            borderRadius: '6px',
-                            minWidth: '45px',
-                            textAlign: 'center'
-                        }}>
-                            {percentage}
-                        </span>
-                    ) : null}
+                    <div style={{ width: '55px', flexShrink: 0 }}>
+                        {editablePct !== undefined && onPctChange ? (
+                            <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                background: 'var(--bg-secondary)',
+                                borderRadius: '6px',
+                                padding: '2px 6px',
+                                border: '1px solid var(--border-accent)'
+                            }}>
+                                <input
+                                    type="number"
+                                    value={editablePct}
+                                    onChange={(e) => onPctChange(parseFloat(e.target.value) || 0)}
+                                    style={{
+                                        width: '36px',
+                                        background: 'transparent',
+                                        border: 'none',
+                                        color: 'var(--text-muted)',
+                                        fontSize: '12px',
+                                        textAlign: 'right',
+                                        outline: 'none',
+                                        fontFamily: 'inherit',
+                                        padding: 0
+                                    }}
+                                    step="0.5"
+                                    min="0"
+                                    max="100"
+                                />
+                                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>%</span>
+                            </div>
+                        ) : percentage ? (
+                            <span style={{
+                                display: 'block',
+                                fontSize: '12px',
+                                color: 'var(--text-muted)',
+                                background: 'var(--bg-secondary)',
+                                padding: '4px 8px',
+                                borderRadius: '6px',
+                                textAlign: 'center'
+                            }}>
+                                {percentage}
+                            </span>
+                        ) : null}
+                    </div>
                 </div>
             </div>
         );
