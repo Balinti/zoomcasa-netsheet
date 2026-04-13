@@ -842,6 +842,7 @@
             const [phone, setPhone] = useState('');
             const [role, setRole] = useState('');
             const [address, setAddress] = useState('');
+            const [smsConsent, setSmsConsent] = useState(true);
 
             // Validation errors
             const [errors, setErrors] = useState({});
@@ -998,6 +999,7 @@
                             asIsValue: resultData.asIsValue,
                             afterRepairValue: resultData.afterRepairValue,
                             totalNetProceeds: totalNet,
+                            smsConsent: smsConsent,
                             timestamp: new Date().toISOString(),
                             source: source || 'netsheet_calculator',
                             referral: source || ''
@@ -1365,6 +1367,51 @@ Initial Estimate - Schedule a Meeting for Final Figures.`;
                                                     {errors.role}
                                                 </p>
                                             )}
+                                        </div>
+
+                                        {/* SMS Consent Toggle */}
+                                        <div
+                                            onClick={() => setSmsConsent(!smsConsent)}
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'flex-start',
+                                                gap: '12px',
+                                                marginBottom: '20px',
+                                                cursor: 'pointer',
+                                                userSelect: 'none'
+                                            }}
+                                        >
+                                            <div style={{
+                                                width: '40px',
+                                                minWidth: '40px',
+                                                height: '22px',
+                                                borderRadius: '11px',
+                                                background: smsConsent
+                                                    ? 'linear-gradient(135deg, var(--accent-primary), var(--accent-secondary))'
+                                                    : 'var(--border-accent)',
+                                                position: 'relative',
+                                                transition: 'background 0.3s ease',
+                                                marginTop: '1px'
+                                            }}>
+                                                <div style={{
+                                                    width: '18px',
+                                                    height: '18px',
+                                                    borderRadius: '50%',
+                                                    background: '#fff',
+                                                    position: 'absolute',
+                                                    top: '2px',
+                                                    left: smsConsent ? '20px' : '2px',
+                                                    transition: 'left 0.3s ease',
+                                                    boxShadow: '0 1px 3px rgba(0,0,0,0.3)'
+                                                }} />
+                                            </div>
+                                            <span style={{
+                                                fontSize: '12px',
+                                                color: 'var(--text-muted)',
+                                                lineHeight: '1.4'
+                                            }}>
+                                                I agree to receive text messages from Zoom Casa with updates, property insights, and promotional offers. Msg & data rates may apply. Reply STOP to unsubscribe.
+                                            </span>
                                         </div>
 
                                         <ShimmerButton onClick={handleContactSubmit} loading={false}>
