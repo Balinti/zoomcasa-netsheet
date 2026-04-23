@@ -869,13 +869,18 @@
             const [buyersAgentPct, setBuyersAgentPct] = useState(3);
             const [resaleClosingCostsPct, setResaleClosingCostsPct] = useState(1);
             const [programFeeBasePct, setProgramFeeBasePct] = useState(5);
-            const [programFeeCarryPct, setProgramFeeCarryPct] = useState(5);
+            const [programFeeCarryPct, setProgramFeeCarryPct] = useState(3);
             const [closingCostsPct, setClosingCostsPct] = useState(1);
 
             // Carrying costs
             const [monthlyMortgagePayment, setMonthlyMortgagePayment] = useState(0);
             const [monthlyCarryingCosts, setMonthlyCarryingCosts] = useState(0);
-            const [monthsToSell, setMonthsToSell] = useState(3);
+            const [monthsToSell, setMonthsToSell] = useState(4);
+
+            // Update carry fee when months to sell changes (0.75% per month)
+            useEffect(() => {
+                setProgramFeeCarryPct(0.75 * monthsToSell);
+            }, [monthsToSell]);
 
             // Ref for print content
             const printRef = useRef(null);
@@ -1146,14 +1151,14 @@ Renovation Budget: ${formatCurrency(renovationBudget || 0)}
 SALE #1 - CASH OFFER
 ========================================
 Current As-Is Market Value: ${formatCurrency(result?.asIsValue || 0)}
-Risk Reserve Premium (${(100 - initialAdvancePct).toFixed(1)}%): -${formatCurrency(c.riskReservePremium || 0)}
+Risk Holdback Premium (${(100 - initialAdvancePct).toFixed(1)}%): -${formatCurrency(c.riskReservePremium || 0)}
 Est. Initial Advance (${initialAdvancePct}%): ${formatCurrency(c.initialAdvance || 0)}
-Reserve - Renovations: ${renovationBudget ? '-' + formatCurrency(renovationBudget) : 'N/A'}
-Reserve - Listing Agent (${listingAgentPct}%): -${formatCurrency(c.listingAgentCost || 0)}
-Reserve - Buyer's Agent (${buyersAgentPct}%): -${formatCurrency(c.buyersAgentCost || 0)}
-Reserve - Closing Costs Resale (${resaleClosingCostsPct}%): -${formatCurrency(c.resaleClosingCosts || 0)}
-Reserve - Program Fee Base (${programFeeBasePct}%): -${formatCurrency(c.programFeeBase || 0)}
-Reserve - Program Fee Carry (${programFeeCarryPct}%): -${formatCurrency(c.programFeeCarry || 0)}
+Holdback - Renovations: ${renovationBudget ? '-' + formatCurrency(renovationBudget) : 'N/A'}
+Holdback - Listing Agent (${listingAgentPct}%): -${formatCurrency(c.listingAgentCost || 0)}
+Holdback - Buyer's Agent (${buyersAgentPct}%): -${formatCurrency(c.buyersAgentCost || 0)}
+Holdback - Closing Costs Resale (${resaleClosingCostsPct}%): -${formatCurrency(c.resaleClosingCosts || 0)}
+Holdback - Program Fee Base (${programFeeBasePct}%): -${formatCurrency(c.programFeeBase || 0)}
+Holdback - Program Fee Carry (${programFeeCarryPct}%): -${formatCurrency(c.programFeeCarry || 0)}
 Est. Mortgage / Debt Payoff: ${mortgageBalance ? '-' + formatCurrency(mortgageBalance) : 'N/A'}
 Closing Costs - Initial Transaction: -${formatCurrency(c.closingCosts || 0)}
 
@@ -1184,8 +1189,8 @@ Monthly Total: ${formatCurrency(c.monthlyTotal || 0)}
 
 DISCLAIMER:
 - This net sheet is an estimate only and is not a guarantee of final proceeds. Actual amounts may vary based on property inspection, title search, market conditions, and other factors discovered during due diligence.
-- All reserves shown are held in escrow and applied toward their designated purpose. Unused portions of any reserve (except the Program Fee) are returned to the seller at resale closing.
-- The Carry Program Fee assumes a 5-month hold period. If the property resells sooner, the unused carry portion is credited back to the seller on a pro-rata basis.
+- All holdbacks shown are held in escrow and applied toward their designated purpose. Unused portions of any holdback (except the Program Fee) are returned to the seller at resale closing.
+- The Carry Program Fee is calculated at 0.75% per month. If the property resells sooner than 5 months, the unused carry portion is credited back to the seller on a pro-rata basis.
 
 ---
 
@@ -1708,14 +1713,14 @@ Initial Estimate - Schedule a Meeting for Final Figures.`;
                                 {computed && (
                                 <SectionCard title="Sale #1 - Cash Offer" titleColor="var(--accent-blue)" delay={2}>
                                     <LineItem label="Current As-Is Market Value" value={result.asIsValue} />
-                                    <LineItem label="Risk Reserve Premium" value={-computed.riskReservePremium} isNegative percentage={`${(100 - initialAdvancePct).toFixed(1)}%`} />
+                                    <LineItem label="Risk Holdback Premium" value={-computed.riskReservePremium} isNegative percentage={`${(100 - initialAdvancePct).toFixed(1)}%`} />
                                     <LineItem label="Est. Initial Advance" value={computed.initialAdvance} percentage={`${initialAdvancePct}%`} />
-                                    <LineItem label="Reserve - Renovations" value={renovationBudget ? -renovationBudget : null} isNegative />
-                                    <LineItem label="Reserve - Resale Brokerage Commissions - Listing Agent" value={-computed.listingAgentCost} isNegative percentage={`${listingAgentPct}%`} />
-                                    <LineItem label="Reserve - Resale Brokerage Commissions - Buyer's Agent" value={-computed.buyersAgentCost} isNegative percentage={`${buyersAgentPct}%`} />
-                                    <LineItem label="Reserve - Closing Costs - Resale Transaction" value={-computed.resaleClosingCosts} isNegative percentage={`${resaleClosingCostsPct}%`} />
-                                    <LineItem label="Reserve - Program Fee (Base)" value={-computed.programFeeBase} isNegative percentage={`${programFeeBasePct}%`} />
-                                    <LineItem label="Reserve - Program Fee (Carry)" value={-computed.programFeeCarry} isNegative percentage={`${programFeeCarryPct}%`} />
+                                    <LineItem label="Holdback - Renovations" value={renovationBudget ? -renovationBudget : null} isNegative />
+                                    <LineItem label="Holdback - Resale Brokerage Commissions - Listing Agent" value={-computed.listingAgentCost} isNegative percentage={`${listingAgentPct}%`} />
+                                    <LineItem label="Holdback - Resale Brokerage Commissions - Buyer's Agent" value={-computed.buyersAgentCost} isNegative percentage={`${buyersAgentPct}%`} />
+                                    <LineItem label="Holdback - Closing Costs - Resale Transaction" value={-computed.resaleClosingCosts} isNegative percentage={`${resaleClosingCostsPct}%`} />
+                                    <LineItem label="Holdback - Program Fee (Base)" value={-computed.programFeeBase} isNegative percentage={`${programFeeBasePct}%`} />
+                                    <LineItem label="Holdback - Program Fee (Carry)" value={-computed.programFeeCarry} isNegative percentage={`${programFeeCarryPct}%`} />
                                     <LineItem label="Est. Mortgage / Debt Payoff" value={mortgageBalance ? -mortgageBalance : null} isNegative />
                                     <LineItem label="Closing Costs - Initial Transaction" value={-computed.closingCosts} isNegative />
                                     <LineItem label="Est. Initial Net Proceeds" value={computed.initialNetProceeds} highlight large />
@@ -1975,8 +1980,8 @@ Initial Estimate - Schedule a Meeting for Final Figures.`;
                                         margin: 0
                                     }}>
                                         <li>This net sheet is an estimate only and is not a guarantee of final proceeds. Actual amounts may vary based on property inspection, title search, market conditions, and other factors discovered during due diligence.</li>
-                                        <li>All reserves shown are held in escrow and applied toward their designated purpose. Unused portions of any reserve (except the Program Fee) are returned to the seller at resale closing.</li>
-                                        <li>The Carry Program Fee assumes a 5-month hold period. Based on an estimated {monthsToSell}-month sale, the unused carry portion ({5 - monthsToSell}/5) is credited back to the seller on a pro-rata basis (shown as "Credit - Unused Carry Program Fee").</li>
+                                        <li>All holdbacks shown are held in escrow and applied toward their designated purpose. Unused portions of any holdback (except the Program Fee) are returned to the seller at resale closing.</li>
+                                        <li>The Carry Program Fee is calculated at 0.75% per month based on the estimated {monthsToSell}-month sale ({programFeeCarryPct}% total). The unused carry portion ({5 - monthsToSell}/5) is credited back to the seller on a pro-rata basis (shown as "Credit - Unused Carry Program Fee").</li>
                                     </ul>
                                 </div>
 
