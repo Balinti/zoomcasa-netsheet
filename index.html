@@ -110,6 +110,25 @@
             display: none;
         }
 
+        /* ===== Mom's House skin — activated via ?source=momshouse ===== */
+        /* These rules only apply when the body has class `momshouse`.   */
+        /* Default / Clever / all other flows are untouched.             */
+        body.momshouse {
+            background: #ffffff;
+            color: #18181b;
+            --bg-primary: #ffffff;
+            --bg-secondary: #ffffff;
+            --bg-card: #ffffff;
+            --bg-elevated: #f9fafb;
+            --text-primary: #18181b;
+            --text-secondary: #52525b;
+            --text-muted: #71717a;
+            --border-subtle: rgba(0, 0, 0, 0.08);
+            --border-accent: rgba(0, 0, 0, 0.14);
+            --accent-blue-glow: rgba(59, 130, 246, 0.18);
+            --accent-green-glow: rgba(16, 185, 129, 0.18);
+        }
+
         @media (max-width: 480px) {
             .logo-full {
                 display: none;
@@ -876,11 +895,29 @@
             const [monthlyMortgagePayment, setMonthlyMortgagePayment] = useState(0);
             const [monthlyCarryingCosts, setMonthlyCarryingCosts] = useState(0);
             const [monthsToSell, setMonthsToSell] = useState(4);
+            const [actualMonthsToSell, setActualMonthsToSell] = useState(4);
 
             // Update carry fee when months to sell changes (0.75% per month)
             useEffect(() => {
                 setProgramFeeCarryPct(0.75 * monthsToSell);
             }, [monthsToSell]);
+
+            // Keep actual months in sync with estimated until the user overrides it.
+            // When estimated changes, reset actual to match so the credit defaults to $0.
+            useEffect(() => {
+                setActualMonthsToSell(monthsToSell);
+            }, [monthsToSell]);
+
+            // Mom's House skin: toggle body class based on ?source=momshouse.
+            // Default / Clever / any other source are unaffected.
+            useEffect(() => {
+                if (source === 'momshouse') {
+                    document.body.classList.add('momshouse');
+                } else {
+                    document.body.classList.remove('momshouse');
+                }
+                return () => document.body.classList.remove('momshouse');
+            }, [source]);
 
             // Ref for print content
             const printRef = useRef(null);
@@ -989,7 +1026,8 @@
                     const advance = Math.round(asIs * initialAdvancePct / 100);
                     const programFeeBase = Math.round(asIs * programFeeBasePct / 100);
                     const programFeeCarry = Math.round(asIs * programFeeCarryPct / 100);
-                    const unusedCarryCredit = Math.round(programFeeCarry * ((5 - monthsToSell) / 5));
+                    const unusedMonths = Math.max(0, monthsToSell - actualMonthsToSell);
+                    const unusedCarryCredit = monthsToSell > 0 ? Math.round(programFeeCarry * (unusedMonths / monthsToSell)) : 0;
                     const totalNet = (advance - renovationBudget - Math.round(asIs * listingAgentPct / 100) - Math.round(asIs * buyersAgentPct / 100) - Math.round(asIs * resaleClosingCostsPct / 100) - programFeeBase - programFeeCarry - mortgageBalance - Math.round(asIs * closingCostsPct / 100)) + (arv - advance + unusedCarryCredit);
 
                     await fetch(LEADCONNECTOR_WEBHOOK, {
@@ -1045,7 +1083,8 @@
 
                 const initialNetProceeds = initialAdvance - renovation - listingAgentCost - buyersAgentCost - resaleClosingCosts - programFeeBase - programFeeCarry - mortgage - closingCosts;
                 const reimburse = initialAdvance;
-                const unusedCarryCredit = Math.round(programFeeCarry * ((5 - monthsToSell) / 5));
+                const unusedMonths = Math.max(0, monthsToSell - actualMonthsToSell);
+                const unusedCarryCredit = monthsToSell > 0 ? Math.round(programFeeCarry * (unusedMonths / monthsToSell)) : 0;
                 const additionalNetProceeds = arv - reimburse + unusedCarryCredit;
                 const totalNetProceeds = initialNetProceeds + additionalNetProceeds;
 
@@ -1169,7 +1208,7 @@ SALE #2 - CASH OFFER PLUS
 ========================================
 Est. Resale Price (ARV): ${formatCurrency(c.arv || 0)}
 Reimburse Zoom Casa Initial Advance: -${formatCurrency(c.reimburse || 0)}
-Credit - Unused Carry Program Fee (${5 - monthsToSell}/5): +${formatCurrency(c.unusedCarryCredit || 0)}
+Credit - Unused Carry Program Fee (${Math.max(0, monthsToSell - actualMonthsToSell)}/${monthsToSell}): +${formatCurrency(c.unusedCarryCredit || 0)}
 
 >>> Additional Net Proceeds: ${formatCurrency(c.additionalNetProceeds || 0)}
 
@@ -1190,7 +1229,7 @@ Monthly Total: ${formatCurrency(c.monthlyTotal || 0)}
 DISCLAIMER:
 - This net sheet is an estimate only and is not a guarantee of final proceeds. Actual amounts may vary based on property inspection, title search, market conditions, and other factors discovered during due diligence.
 - All holdbacks shown are held in escrow and applied toward their designated purpose. Unused portions of any holdback (except the Program Fee) are returned to the seller at resale closing.
-- The Carry Program Fee is calculated at 0.75% per month. If the property resells sooner than 5 months, the unused carry portion is credited back to the seller on a pro-rata basis.
+- The Carry Program Fee is calculated at 0.75% per month based on the estimated months to sell. If the actual time to sell is shorter than estimated, the unused carry portion is credited back to the seller on a pro-rata basis.
 
 ---
 
@@ -1213,7 +1252,7 @@ Initial Estimate - Schedule a Meeting for Final Figures.`;
 
             return (
                 <div style={{ position: 'relative', minHeight: '100vh' }}>
-                    <BackgroundEffects />
+                    {source !== 'momshouse' && <BackgroundEffects />}
                     
                     <div style={{
                         position: 'relative',
@@ -1227,8 +1266,8 @@ Initial Estimate - Schedule a Meeting for Final Figures.`;
                             {/* Full logo for desktop */}
                             <img
                                 className="logo-full"
-                                src="Zoom Casa (white).png"
-                                alt="Zoom Casa"
+                                src={source === 'momshouse' ? 'moms-house-logo.jpeg' : 'Zoom Casa (white).png'}
+                                alt={source === 'momshouse' ? "Mom's House" : 'Zoom Casa'}
                                 style={{
                                     height: '60px',
                                     width: 'auto',
@@ -1240,8 +1279,8 @@ Initial Estimate - Schedule a Meeting for Final Figures.`;
                             {/* Symbol logo for mobile */}
                             <img
                                 className="logo-symbol"
-                                src="Zoom Casa Symbol White.png"
-                                alt="Zoom Casa"
+                                src={source === 'momshouse' ? 'moms-house-logo.jpeg' : 'Zoom Casa Symbol White.png'}
+                                alt={source === 'momshouse' ? "Mom's House" : 'Zoom Casa'}
                                 style={{
                                     height: '50px',
                                     width: 'auto',
@@ -1502,13 +1541,13 @@ Initial Estimate - Schedule a Meeting for Final Figures.`;
                                 {/* Print Header - Only shows in print */}
                                 <div className="print-only print-header" style={{ display: 'none' }}>
                                     <img
-                                        src="Zoom Casa (white).png"
-                                        alt="Zoom Casa"
+                                        src={source === 'momshouse' ? 'moms-house-logo.jpeg' : 'Zoom Casa (white).png'}
+                                        alt={source === 'momshouse' ? "Mom's House" : 'Zoom Casa'}
                                         style={{
                                             height: '40px',
                                             width: 'auto',
                                             marginBottom: '8px',
-                                            filter: 'invert(1)'
+                                            filter: source === 'momshouse' ? 'none' : 'invert(1)'
                                         }}
                                     />
                                     <p style={{ fontSize: '12px', color: '#666', letterSpacing: '2px', textTransform: 'uppercase' }}>
@@ -1732,7 +1771,7 @@ Initial Estimate - Schedule a Meeting for Final Figures.`;
                                 <SectionCard title="Sale #2 - Cash Offer Plus" titleColor="var(--accent-green)" delay={3}>
                                     <LineItem label="Est. Resale Price - After Repair Value" value={computed.arv} />
                                     <LineItem label="Reimburse Zoom Casa Initial Advance" value={-computed.reimburse} isNegative />
-                                    <LineItem label="Credit - Unused Carry Program Fee" value={computed.unusedCarryCredit} percentage={`${5 - monthsToSell}/5`} />
+                                    <LineItem label="Credit - Unused Carry Program Fee" value={computed.unusedCarryCredit} percentage={`${Math.max(0, monthsToSell - actualMonthsToSell)}/${monthsToSell}`} />
                                     <LineItem label="Additional Net Proceeds" value={computed.additionalNetProceeds} highlight large />
                                 </SectionCard>
                                 )}
@@ -1951,6 +1990,53 @@ Initial Estimate - Schedule a Meeting for Final Figures.`;
                                     </div>
                                     <LineItem label="Monthly Total" value={computed.monthlyTotal} />
                                     <LineItem label="5-Month Total Carrying Costs" value={computed.fiveMonthTotal} highlight large />
+
+                                    {/* Actual Months to Sell — drives the credit in Sale #2 */}
+                                    <div style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        padding: '16px 20px',
+                                        background: 'var(--bg-card)',
+                                        borderRadius: '12px',
+                                        marginTop: '16px',
+                                        border: '1px solid var(--border-subtle)'
+                                    }}>
+                                        <span style={{
+                                            fontSize: '13px',
+                                            fontWeight: 500,
+                                            color: 'var(--text-secondary)',
+                                            textTransform: 'uppercase',
+                                            letterSpacing: '0.5px'
+                                        }}>
+                                            Actual Months to Sell
+                                        </span>
+                                        <select
+                                            value={actualMonthsToSell}
+                                            onChange={(e) => setActualMonthsToSell(parseInt(e.target.value))}
+                                            style={{
+                                                padding: '8px 32px 8px 12px',
+                                                fontSize: '14px',
+                                                fontWeight: 600,
+                                                fontFamily: 'inherit',
+                                                background: 'var(--bg-elevated)',
+                                                border: '1px solid var(--border-accent)',
+                                                borderRadius: '8px',
+                                                color: 'var(--text-primary)',
+                                                outline: 'none',
+                                                cursor: 'pointer',
+                                                appearance: 'none',
+                                                WebkitAppearance: 'none',
+                                                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23999' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
+                                                backgroundRepeat: 'no-repeat',
+                                                backgroundPosition: 'right 10px center'
+                                            }}
+                                        >
+                                            {[1,2,3,4,5,6,7,8].map(m => (
+                                                <option key={m} value={m}>{m} month{m > 1 ? 's' : ''}</option>
+                                            ))}
+                                        </select>
+                                    </div>
                                 </SectionCard>
                                 )}
 
@@ -1981,7 +2067,7 @@ Initial Estimate - Schedule a Meeting for Final Figures.`;
                                     }}>
                                         <li>This net sheet is an estimate only and is not a guarantee of final proceeds. Actual amounts may vary based on property inspection, title search, market conditions, and other factors discovered during due diligence.</li>
                                         <li>All holdbacks shown are held in escrow and applied toward their designated purpose. Unused portions of any holdback (except the Program Fee) are returned to the seller at resale closing.</li>
-                                        <li>The Carry Program Fee is calculated at 0.75% per month based on the estimated {monthsToSell}-month sale ({programFeeCarryPct}% total). The unused carry portion ({5 - monthsToSell}/5) is credited back to the seller on a pro-rata basis (shown as "Credit - Unused Carry Program Fee").</li>
+                                        <li>The Carry Program Fee is calculated at 0.75% per month based on the estimated {monthsToSell}-month sale ({programFeeCarryPct}% total). If the actual time to sell ({actualMonthsToSell} mo) is shorter than estimated, the unused carry portion ({Math.max(0, monthsToSell - actualMonthsToSell)}/{monthsToSell}) is credited back to the seller on a pro-rata basis (shown as "Credit - Unused Carry Program Fee").</li>
                                     </ul>
                                 </div>
 
