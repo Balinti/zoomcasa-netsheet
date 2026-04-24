@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zoom Casa — Recap Pack</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg-primary: #0a0a0b;
+            --bg-secondary: #111113;
+            --bg-card: #18181b;
+            --bg-elevated: #1f1f23;
+            --text-primary: #fafafa;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --accent-blue: #3b82f6;
+            --accent-green: #10b981;
+            --accent-gold: #f59e0b;
+            --border-subtle: rgba(255, 255, 255, 0.06);
+            --border-accent: rgba(255, 255, 255, 0.1);
+        }
+
+        body {
+            font-family: 'Instrument Sans', -apple-system, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+
+        body.momshouse {
+            background: #ffffff;
+            color: #18181b;
+            --bg-primary: #ffffff;
+            --bg-secondary: #ffffff;
+            --bg-card: #ffffff;
+            --bg-elevated: #f9fafb;
+            --text-primary: #18181b;
+            --text-secondary: #52525b;
+            --text-muted: #71717a;
+            --border-subtle: rgba(0, 0, 0, 0.08);
+            --border-accent: rgba(0, 0, 0, 0.14);
+        }
+
+        input, select, textarea {
+            font-family: inherit;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-accent);
+            color: var(--text-primary);
+            border-radius: 8px;
+            padding: 10px 12px;
+            font-size: 14px;
+            outline: none;
+            width: 100%;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            border-color: var(--accent-blue);
+        }
+
+        input[type=number]::-webkit-outer-spin-button,
+        input[type=number]::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type=number] { -moz-appearance: textfield; }
+
+        textarea { resize: vertical; min-height: 60px; }
+
+        button {
+            font-family: inherit;
+            cursor: pointer;
+            border: none;
+            border-radius: 8px;
+            padding: 8px 14px;
+            font-size: 13px;
+            font-weight: 600;
+            transition: transform 0.1s, background 0.2s;
+        }
+        button:active { transform: scale(0.98); }
+
+        .btn-primary {
+            background: var(--accent-blue);
+            color: white;
+        }
+        .btn-secondary {
+            background: var(--bg-elevated);
+            color: var(--text-primary);
+            border: 1px solid var(--border-accent);
+        }
+        .btn-ghost {
+            background: transparent;
+            color: var(--text-secondary);
+            border: 1px solid var(--border-subtle);
+        }
+
+        .label {
+            display: block;
+            font-size: 11px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+            font-weight: 600;
+        }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 16px;
+            padding: 24px;
+        }
+
+        pre.output {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-subtle);
+            border-radius: 10px;
+            padding: 16px;
+            font-family: 'Instrument Sans', -apple-system, sans-serif;
+            font-size: 14px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            color: var(--text-primary);
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+
+        @media (max-width: 900px) {
+            .grid-2, .grid-3 { grid-template-columns: 1fr; }
+        }
+
+        /* Print: only the net sheet prints */
+        @media print {
+            * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+            body { background: white !important; color: #1a1a1a !important; }
+            .no-print { display: none !important; }
+            .print-only { display: block !important; }
+            .print-container {
+                page-break-inside: avoid !important;
+                max-width: 100% !important;
+                padding: 0 !important;
+            }
+            @page { size: letter; margin: 0.4in 0.5in; }
+
+            .print-container .card,
+            .print-container div[class*="sheet-"] {
+                background: #ffffff !important;
+                border: 1px solid #e0e0e0 !important;
+                color: #1a1a1a !important;
+            }
+            .print-container * { color: #1a1a1a !important; }
+            .print-container .accent-blue { color: #3b82f6 !important; }
+            .print-container .accent-green { color: #10b981 !important; }
+        }
+        .print-only { display: none; }
+    </style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useMemo, useRef } = React;
+
+const fmt = (n) => {
+    if (n === null || n === undefined || isNaN(n)) return '$0';
+    const abs = Math.abs(Math.round(n)).toLocaleString('en-US');
+    return n < 0 ? `$(${abs})` : `$${abs}`;
+};
+const fmtK = (n) => {
+    if (!n) return '$0';
+    const k = Math.round(n / 1000);
+    return `$${k}K`;
+};
+
+// Example defaults derived from the transcript (13389 Gandall Ct)
+const EXAMPLE = {
+    recipientName: 'Norm',
+    recipientEmail: '',
+    senderName: 'John',
+    address: '13389 Gandall Ct, Manassas, VA 20112',
+    listPrice: 750000,
+    asIsValue: 725000,
+    renovationBudget: 50000,
+    afterRepairValue: 825000,
+    mortgageBalance: 0,
+    situationLine: 'There is a lot going on personally for the seller right now — taking care of family members',
+    renoItems: 'bathroom, paint, floors, general cleanup',
+    callDay: 'Monday',
+    callSlot1: '10:00 AM Eastern',
+    callSlot2: '11:00 AM Eastern',
+    initialAdvancePct: 85,
+    programFeeBasePct: 5,
+    programFeeCarryPct: 3,
+    monthsToSell: 4,
+    listingAgentPct: 3,
+    buyersAgentPct: 3,
+    resaleClosingCostsPct: 1,
+    closingCostsPct: 1,
+    source: 'zoomcasa'
+};
+
+const BLANK = {
+    recipientName: '',
+    recipientEmail: '',
+    senderName: '',
+    address: '',
+    listPrice: 0,
+    asIsValue: 0,
+    renovationBudget: 0,
+    afterRepairValue: 0,
+    mortgageBalance: 0,
+    situationLine: '',
+    renoItems: 'bathroom, paint, floors, general cleanup',
+    callDay: 'Monday',
+    callSlot1: '10:00 AM Eastern',
+    callSlot2: '11:00 AM Eastern',
+    initialAdvancePct: 85,
+    programFeeBasePct: 5,
+    programFeeCarryPct: 3,
+    monthsToSell: 4,
+    listingAgentPct: 3,
+    buyersAgentPct: 3,
+    resaleClosingCostsPct: 1,
+    closingCostsPct: 1,
+    source: 'zoomcasa'
+};
+
+// ============ Components ============
+
+const Field = ({ label, children, span = 1 }) => (
+    <div style={{ gridColumn: `span ${span}` }}>
+        <span className="label">{label}</span>
+        {children}
+    </div>
+);
+
+const CopyButton = ({ getText, label = 'Copy' }) => {
+    const [copied, setCopied] = useState(false);
+    const onClick = async () => {
+        try {
+            await navigator.clipboard.writeText(getText());
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1500);
+        } catch (e) {
+            alert('Copy failed — select and copy manually');
+        }
+    };
+    return (
+        <button className="btn-secondary" onClick={onClick}>
+            {copied ? '✓ Copied' : label}
+        </button>
+    );
+};
+
+const LineItem = ({ label, value, highlight, isNegative, percentage }) => (
+    <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: '10px 0',
+        borderBottom: highlight ? 'none' : '1px solid var(--border-subtle)',
+        marginTop: highlight ? '8px' : 0,
+        paddingTop: highlight ? '14px' : '10px',
+        borderTop: highlight ? '2px solid var(--border-accent)' : 'none'
+    }}>
+        <span style={{
+            fontSize: highlight ? '14px' : '13px',
+            fontWeight: highlight ? 600 : 500,
+            color: highlight ? 'var(--text-primary)' : 'var(--text-secondary)',
+            flex: 1,
+            paddingRight: 8
+        }}>
+            {label}{percentage && <span style={{ color: 'var(--text-muted)', fontWeight: 500 }}> ({percentage})</span>}
+        </span>
+        <span style={{
+            fontSize: highlight ? '18px' : '14px',
+            fontWeight: highlight ? 700 : 600,
+            fontVariantNumeric: 'tabular-nums',
+            color: highlight
+                ? 'var(--accent-green)'
+                : isNegative ? 'var(--text-muted)' : 'var(--text-primary)'
+        }} className={highlight ? 'accent-green' : ''}>
+            {value === null || value === 0 ? '—' : fmt(value)}
+        </span>
+    </div>
+);
+
+const SectionCard = ({ title, titleColor, children }) => (
+    <div className="card" style={{ marginBottom: 16 }}>
+        <h3 style={{
+            fontSize: 14,
+            fontWeight: 700,
+            color: titleColor,
+            marginBottom: 12,
+            textTransform: 'uppercase',
+            letterSpacing: 1
+        }} className={titleColor === 'var(--accent-blue)' ? 'accent-blue' : 'accent-green'}>
+            {title}
+        </h3>
+        {children}
+    </div>
+);
+
+// ============ Math (matches index.html) ============
+
+const computeSheet = (f) => {
+    const asIs = f.asIsValue || 0;
+    const arv = f.afterRepairValue || asIs;
+    const initialAdvance = Math.round(asIs * f.initialAdvancePct / 100);
+    const riskReservePremium = asIs - initialAdvance;
+    const listingAgentCost = Math.round(asIs * f.listingAgentPct / 100);
+    const buyersAgentCost = Math.round(asIs * f.buyersAgentPct / 100);
+    const resaleClosingCosts = Math.round(asIs * f.resaleClosingCostsPct / 100);
+    const programFeeBase = Math.round(asIs * f.programFeeBasePct / 100);
+    const programFeeCarry = Math.round(asIs * f.programFeeCarryPct / 100);
+    const closingCosts = Math.round(asIs * f.closingCostsPct / 100);
+    const mortgage = f.mortgageBalance || 0;
+    const renovation = f.renovationBudget || 0;
+
+    const initialNetProceeds = initialAdvance - renovation - listingAgentCost - buyersAgentCost
+        - resaleClosingCosts - programFeeBase - programFeeCarry - mortgage - closingCosts;
+    const reimburse = initialAdvance;
+    const additionalNetProceeds = arv - reimburse;
+    const totalNetProceeds = initialNetProceeds + additionalNetProceeds;
+
+    return {
+        asIs, arv, initialAdvance, riskReservePremium,
+        listingAgentCost, buyersAgentCost, resaleClosingCosts,
+        programFeeBase, programFeeCarry, closingCosts, mortgage, renovation,
+        initialNetProceeds, reimburse, additionalNetProceeds, totalNetProceeds
+    };
+};
+
+// ============ Email template ============
+
+const renderEmail = (f, c) => {
+    const subject = `${f.address || '[Address]'} Recap and Video`;
+    const body = `Hi ${f.recipientName || '[Name]'},
+
+Stepping back for a second — the part that stood out to me wasn't just the house… it was the situation.
+
+It sounds like:
+
+• ${f.situationLine || '[situation context]'}
+• The home has some deferred maintenance that buyers are going to pick apart
+• And they're probably not excited about 6+ months of showings, negotiations, and uncertainty
+
+This feels less like a "maximize every last dollar" situation…
+and more like a "simplify this and move on" situation while still maximizing.
+
+Here's how I'm seeing the property:
+
+• Likely lists around ${fmtK(f.listPrice)}, but realistically settles closer to ~${fmtK(f.asIsValue)} after negotiations
+• Needs some key updates (${f.renoItems || 'bathroom, paint, floors, general cleanup'})
+• If listed as-is, you're probably dealing with:
+    - inspection credits
+    - price reductions
+    - time on market
+    - and a bit of a grind to get it done
+
+One option we walked through:
+
+Instead of:
+• Listing as-is and taking the haircut
+• Or going all-in on a heavy renovation
+
+👉 There might be a cleaner middle ground.
+
+• Step in around ${fmtK(f.asIsValue)}
+• Put about ${fmtK(f.renovationBudget)} into the right updates
+• Reposition it to sell closer to ~${fmtK(f.afterRepairValue)}
+
+What that looks like for your seller:
+
+• ~${fmtK(c.initialNetProceeds)} upfront in a few weeks
+• No out-of-pocket for repairs
+• No managing contractors
+• No showings or drawn-out timeline
+• And still participate in the upside on resale (projected total net ~${fmtK(c.totalNetProceeds)})
+
+So instead of choosing between:
+• fast but leaving money on the table
+• or maximizing price but dealing with stress
+
+They get:
+👉 speed, simplicity, and still a strong outcome
+
+Not saying this is the answer — just one more way to solve it based on what you shared.
+
+Next step (if this isn't crazy):
+Would it make sense to hop on a quick call with you and the seller and walk through it together?
+
+I've got a couple openings ${f.callDay || 'Monday'} morning:
+• ${f.callSlot1 || '10:00 AM Eastern'}
+• ${f.callSlot2 || '11:00 AM Eastern'}
+
+If those don't work, we'll find something that does.
+
+At the end of the day, you know them best.
+This just gives you another option if the traditional route doesn't feel like the right fit.
+
+Thanks,
+${f.senderName || '[Your name]'}`;
+
+    return { subject, body };
+};
+
+// ============ Script template ============
+
+const renderScript = (f, c) => {
+    const addr = f.address || '[address]';
+    const name = f.recipientName || '[agent]';
+
+    return `[0:00 — Open]
+
+Hey ${name}, wanted to get you a quick update on the property we talked about this morning — ${addr}. I can't find many pictures online, but I think we can get to the gist of it.
+
+[0:15 — Situation recap]
+
+You had said good bones on the house — all fixed up, selling well north of ${fmtK(f.afterRepairValue)} for sure. Right now though, we've got some deferred maintenance. There's a lot that could be done to the property to push it there, and then there's some things that really need to be done — ${f.renoItems || 'bathroom, paint, floors'}. So there are some strategic things that can let us get the most out.
+
+You also said the seller's not really looking at going through that listing process — having it sit for 6, 8, 12 months, nickel-and-diming, prices going up and down. Seller's motivated to move. ${f.situationLine ? f.situationLine + '.' : ''} Just a lot going on where it's maybe a property they want to move from their to-do list to their done list.
+
+I want to walk you through what our assumptions would be. I don't know if this makes sense for them — I kind of think it does based on everything we talked about — but let me just walk you through the numbers.
+
+[0:55 — Show net sheet, property header]
+
+So here's the property — ${addr}.${f.mortgageBalance ? '' : " I don't think they owe anything on it today."}
+
+Right now we're saying the as-is value — maybe you list at ${fmtK(f.listPrice)}, but people are going to come back, nickel and dime through inspection things. Probably ${fmtK(f.asIsValue)} is where you end up settling in and ultimately selling. Who knows how long that takes. Fine — that's option one.
+
+[1:30 — Option two, strategic reno]
+
+Option two — this is where we come in. We're happy to just do it at ${fmtK(f.asIsValue)}. But what if we went in and said, for ${fmtK(f.renovationBudget)}, what strategic renovations could we do to maximize profit? We put ${fmtK(f.renovationBudget)} into it, we fix ${f.renoItems || 'the key items'}, we do the little things that need to be done. Not turnkey, but definitely something somebody can move into today and make their own. Does that take the value from ${fmtK(f.asIsValue)} up to about ${fmtK(f.afterRepairValue)}? Based on what we talked about — yes. That's about ${fmtK(f.afterRepairValue - f.asIsValue)} of upside.
+
+[2:10 — How it works, risk reserve]
+
+[highlight risk holdback row]
+
+The way we do this — we set aside a risk reserve for you. This is the seller's money — they're going to get it in the future. Whenever it sells, that money is set off to the side. And we advance a portion of the final sales price upfront — in this case about ${f.initialAdvancePct}%.
+
+[highlight program fee rows]
+
+From there we — Zoom Casa — take a ${f.programFeeBasePct}% fee. That's our concierge service — for us to go in and do all the things we do. It's going to take us about 30 days to do the renovation. We figure another three months or so to get it under contract and sold. So we set aside ${f.monthsToSell} months of a carrying fee at 0.75% a month — which comes out to ${f.programFeeCarryPct}%.
+
+We also have agents involved — ${f.buyersAgentPct}% to a buyer's agent, ${f.listingAgentPct}% to a listing agent. Plus closing costs on both sides.
+
+[2:50 — Walk the numbers]
+
+[highlight Sale #1 section]
+
+So I'm making the assumption we get this sold in ${f.monthsToSell} months. Here's what the offer looks like.
+
+Step one — we start at ${fmtK(f.asIsValue)}, what we believe the house is worth. We do the risk reserve holdback — that's set aside. We advance ${fmt(c.initialAdvance)}. We set aside the renovation budget, the real estate commissions, closing fees for the second sale, and our program fees. You only pay for the carry time you actually use.${f.mortgageBalance ? '' : " And I don't believe there's any mortgage here."} When we buy the house, you'll have some initial closing costs — same as if you sold to anyone else.
+
+So right now — you're probably sitting on a check in the next three to four weeks of about ${fmt(c.initialNetProceeds)}. That's check number one.
+
+[highlight Sale #2 section]
+
+Once we go in, we own the home, we do the renovations, we get everything done. We relist — and here's where it gets more attractive. We sell for ${fmtK(f.afterRepairValue)}. You reimburse the initial advance. There's a second check coming to you for ${fmt(c.additionalNetProceeds)}.
+
+[highlight total]
+
+So total net to seller: ${fmt(c.totalNetProceeds)}. That's significantly more than you'd net on the open market today, and way more than from a typical investor.
+
+[4:30 — CTA]
+
+This, to me, makes a lot of sense based on the scenario you painted. Again, I don't know if it actually makes sense to you — but if it's not crazy and you'd like to get on a call and ask some questions, happy to do that. I have openings ${f.callDay || 'Monday'} morning — ${f.callSlot1 || '10 Eastern'} or ${f.callSlot2 || '11 Eastern'}. Just let me know.
+
+Next step after that would be getting a contract, and from there we move quickly — we handle appraisals and anything else we need. You're about three weeks away from closing.
+
+Take this — the sheet will be included with the exact numbers. If I missed anything or you have questions, let me know. Thanks.`;
+};
+
+// ============ Main App ============
+
+const App = () => {
+    const [f, setF] = useState(BLANK);
+    const set = (k) => (v) => setF((prev) => ({ ...prev, [k]: v }));
+    const setNum = (k) => (e) => {
+        const raw = e.target.value.replace(/[^0-9]/g, '');
+        setF((prev) => ({ ...prev, [k]: parseInt(raw, 10) || 0 }));
+    };
+    const setPct = (k) => (e) => {
+        setF((prev) => ({ ...prev, [k]: parseFloat(e.target.value) || 0 }));
+    };
+    const setStr = (k) => (e) => setF((prev) => ({ ...prev, [k]: e.target.value }));
+
+    useEffect(() => {
+        document.body.classList.toggle('momshouse', f.source === 'momshouse');
+    }, [f.source]);
+
+    const c = useMemo(() => computeSheet(f), [f]);
+    const { subject, body } = useMemo(() => renderEmail(f, c), [f, c]);
+    const script = useMemo(() => renderScript(f, c), [f, c]);
+
+    const printRef = useRef();
+
+    return (
+        <div style={{ maxWidth: 1400, margin: '0 auto', padding: '32px 24px' }}>
+            {/* Header */}
+            <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
+                <div>
+                    <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 4 }}>Recap Pack</h1>
+                    <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>Net sheet + email + video script for one deal</p>
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                    <button className="btn-ghost" onClick={() => setF(EXAMPLE)}>Load example</button>
+                    <button className="btn-ghost" onClick={() => setF(BLANK)}>Reset</button>
+                </div>
+            </div>
+
+            {/* Inputs */}
+            <div className="no-print card" style={{ marginBottom: 24 }}>
+                <h2 style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent-blue)', marginBottom: 16, textTransform: 'uppercase', letterSpacing: 1 }} className="accent-blue">
+                    Inputs
+                </h2>
+
+                <div className="grid-3" style={{ marginBottom: 16 }}>
+                    <Field label="Recipient first name">
+                        <input value={f.recipientName} onChange={setStr('recipientName')} placeholder="Norm" />
+                    </Field>
+                    <Field label="Recipient email (optional)">
+                        <input value={f.recipientEmail} onChange={setStr('recipientEmail')} placeholder="norm@example.com" />
+                    </Field>
+                    <Field label="Your name (sender)">
+                        <input value={f.senderName} onChange={setStr('senderName')} placeholder="John" />
+                    </Field>
+                </div>
+
+                <div className="grid-3" style={{ marginBottom: 16 }}>
+                    <Field label="Property address" span={3}>
+                        <input value={f.address} onChange={setStr('address')} placeholder="13389 Gandall Ct, Manassas, VA 20112" />
+                    </Field>
+                </div>
+
+                <div className="grid-3" style={{ marginBottom: 16 }}>
+                    <Field label="Aspirational list price">
+                        <input value={f.listPrice ? f.listPrice.toLocaleString('en-US') : ''} onChange={setNum('listPrice')} placeholder="750,000" />
+                    </Field>
+                    <Field label="As-is value (settling price)">
+                        <input value={f.asIsValue ? f.asIsValue.toLocaleString('en-US') : ''} onChange={setNum('asIsValue')} placeholder="725,000" />
+                    </Field>
+                    <Field label="After-repair value">
+                        <input value={f.afterRepairValue ? f.afterRepairValue.toLocaleString('en-US') : ''} onChange={setNum('afterRepairValue')} placeholder="825,000" />
+                    </Field>
+                </div>
+
+                <div className="grid-2" style={{ marginBottom: 16 }}>
+                    <Field label="Renovation budget">
+                        <input value={f.renovationBudget ? f.renovationBudget.toLocaleString('en-US') : ''} onChange={setNum('renovationBudget')} placeholder="50,000" />
+                    </Field>
+                    <Field label="Existing mortgage balance">
+                        <input value={f.mortgageBalance ? f.mortgageBalance.toLocaleString('en-US') : ''} onChange={setNum('mortgageBalance')} placeholder="0" />
+                    </Field>
+                </div>
+
+                <div className="grid-2" style={{ marginBottom: 16 }}>
+                    <Field label="Situation (one line — what's going on for the seller)" span={2}>
+                        <textarea value={f.situationLine} onChange={setStr('situationLine')} placeholder="There's a lot going on personally for the seller right now — taking care of family members" />
+                    </Field>
+                </div>
+
+                <div className="grid-2" style={{ marginBottom: 16 }}>
+                    <Field label="Key reno items (comma-separated)" span={2}>
+                        <input value={f.renoItems} onChange={setStr('renoItems')} placeholder="bathroom, paint, floors, general cleanup" />
+                    </Field>
+                </div>
+
+                <div className="grid-3" style={{ marginBottom: 16 }}>
+                    <Field label="Call day">
+                        <input value={f.callDay} onChange={setStr('callDay')} placeholder="Monday" />
+                    </Field>
+                    <Field label="Slot 1">
+                        <input value={f.callSlot1} onChange={setStr('callSlot1')} placeholder="10:00 AM Eastern" />
+                    </Field>
+                    <Field label="Slot 2">
+                        <input value={f.callSlot2} onChange={setStr('callSlot2')} placeholder="11:00 AM Eastern" />
+                    </Field>
+                </div>
+
+                <details style={{ marginTop: 8 }}>
+                    <summary style={{ cursor: 'pointer', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 600, marginBottom: 12 }}>
+                        Offer terms (defaults to Zoom Casa standard)
+                    </summary>
+                    <div className="grid-3" style={{ marginTop: 12 }}>
+                        <Field label="Initial advance %">
+                            <input type="number" value={f.initialAdvancePct} onChange={setPct('initialAdvancePct')} />
+                        </Field>
+                        <Field label="Program fee base %">
+                            <input type="number" value={f.programFeeBasePct} onChange={setPct('programFeeBasePct')} />
+                        </Field>
+                        <Field label="Program fee carry % (0.75/mo × months)">
+                            <input type="number" step="0.1" value={f.programFeeCarryPct} onChange={setPct('programFeeCarryPct')} />
+                        </Field>
+                        <Field label="Months to sell">
+                            <input type="number" value={f.monthsToSell} onChange={setPct('monthsToSell')} />
+                        </Field>
+                        <Field label="Listing agent %">
+                            <input type="number" step="0.1" value={f.listingAgentPct} onChange={setPct('listingAgentPct')} />
+                        </Field>
+                        <Field label="Buyer's agent %">
+                            <input type="number" step="0.1" value={f.buyersAgentPct} onChange={setPct('buyersAgentPct')} />
+                        </Field>
+                        <Field label="Initial closing %">
+                            <input type="number" step="0.1" value={f.closingCostsPct} onChange={setPct('closingCostsPct')} />
+                        </Field>
+                        <Field label="Resale closing %">
+                            <input type="number" step="0.1" value={f.resaleClosingCostsPct} onChange={setPct('resaleClosingCostsPct')} />
+                        </Field>
+                        <Field label="Source (branding)">
+                            <select value={f.source} onChange={setStr('source')}>
+                                <option value="zoomcasa">Zoom Casa</option>
+                                <option value="momshouse">Mom's House</option>
+                            </select>
+                        </Field>
+                    </div>
+                </details>
+            </div>
+
+            {/* Output 1 — Net Sheet */}
+            <div style={{ marginBottom: 24 }} ref={printRef}>
+                <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                    <h2 style={{ fontSize: 18, fontWeight: 700 }}>Net Sheet</h2>
+                    <button className="btn-primary" onClick={() => window.print()}>Print / Save PDF</button>
+                </div>
+
+                <div className="print-container card">
+                    <div className="print-only" style={{ textAlign: 'center', borderBottom: '2px solid #3b82f6', paddingBottom: 12, marginBottom: 16 }}>
+                        <p style={{ fontSize: 18, fontWeight: 700 }}>
+                            {f.source === 'momshouse' ? "Mom's House" : 'Zoom Casa'} — Net Sheet Proposal
+                        </p>
+                        <p style={{ fontSize: 11, color: '#666' }}>Generated {new Date().toLocaleDateString()}</p>
+                    </div>
+
+                    <div style={{ marginBottom: 16 }}>
+                        <p className="label">Property Address</p>
+                        <p style={{ fontSize: 16, fontWeight: 600 }}>{f.address || '—'}</p>
+                        {f.recipientName && <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>Prepared for {f.recipientName}</p>}
+                    </div>
+
+                    <SectionCard title="Sale #1 — Cash Offer" titleColor="var(--accent-blue)">
+                        <LineItem label="Current As-Is Market Value" value={c.asIs} />
+                        <LineItem label="Risk Holdback Premium" value={-c.riskReservePremium} isNegative percentage={`${(100 - f.initialAdvancePct).toFixed(1)}%`} />
+                        <LineItem label="Est. Initial Advance" value={c.initialAdvance} percentage={`${f.initialAdvancePct}%`} />
+                        <LineItem label="Holdback — Renovations" value={c.renovation ? -c.renovation : 0} isNegative />
+                        <LineItem label="Holdback — Listing Agent" value={-c.listingAgentCost} isNegative percentage={`${f.listingAgentPct}%`} />
+                        <LineItem label="Holdback — Buyer's Agent" value={-c.buyersAgentCost} isNegative percentage={`${f.buyersAgentPct}%`} />
+                        <LineItem label="Holdback — Resale Closing Costs" value={-c.resaleClosingCosts} isNegative percentage={`${f.resaleClosingCostsPct}%`} />
+                        <LineItem label="Holdback — Program Fee (Base)" value={-c.programFeeBase} isNegative percentage={`${f.programFeeBasePct}%`} />
+                        <LineItem label="Holdback — Program Fee (Carry)" value={-c.programFeeCarry} isNegative percentage={`${f.programFeeCarryPct}%`} />
+                        <LineItem label="Mortgage / Debt Payoff" value={c.mortgage ? -c.mortgage : 0} isNegative />
+                        <LineItem label="Closing Costs — Initial Transaction" value={-c.closingCosts} isNegative percentage={`${f.closingCostsPct}%`} />
+                        <LineItem label="Est. Initial Net Proceeds" value={c.initialNetProceeds} highlight />
+                    </SectionCard>
+
+                    <SectionCard title="Sale #2 — Cash Offer Plus" titleColor="var(--accent-green)">
+                        <LineItem label="Est. Resale Price (ARV)" value={c.arv} />
+                        <LineItem label="Reimburse Initial Advance" value={-c.reimburse} isNegative />
+                        <LineItem label="Additional Net Proceeds" value={c.additionalNetProceeds} highlight />
+                    </SectionCard>
+
+                    <div className="card" style={{
+                        background: 'linear-gradient(135deg, var(--bg-elevated) 0%, var(--bg-card) 100%)',
+                        textAlign: 'center',
+                        padding: 24
+                    }}>
+                        <p style={{ fontSize: 11, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 8 }}>
+                            Total Est. Net to Seller
+                        </p>
+                        <p style={{ fontSize: 36, fontWeight: 700, color: 'var(--accent-green)' }} className="accent-green">
+                            {fmt(c.totalNetProceeds)}
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            {/* Output 2 — Email */}
+            <div className="no-print" style={{ marginBottom: 24 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+                    <h2 style={{ fontSize: 18, fontWeight: 700 }}>Email</h2>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                        <CopyButton getText={() => subject} label="Copy subject" />
+                        <CopyButton getText={() => body} label="Copy body" />
+                        <CopyButton getText={() => `Subject: ${subject}\n\n${body}`} label="Copy all" />
+                        {f.recipientEmail && (
+                            <a
+                                href={`mailto:${encodeURIComponent(f.recipientEmail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`}
+                                style={{ textDecoration: 'none' }}
+                            >
+                                <button className="btn-primary">Open in mail</button>
+                            </a>
+                        )}
+                    </div>
+                </div>
+                <div className="card">
+                    <div style={{ marginBottom: 12, paddingBottom: 12, borderBottom: '1px solid var(--border-subtle)' }}>
+                        <p className="label">Subject</p>
+                        <p style={{ fontSize: 15, fontWeight: 600 }}>{subject}</p>
+                    </div>
+                    <pre className="output">{body}</pre>
+                </div>
+            </div>
+
+            {/* Output 3 — Script */}
+            <div className="no-print" style={{ marginBottom: 48 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                    <div>
+                        <h2 style={{ fontSize: 18, fontWeight: 700 }}>Video Script</h2>
+                        <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>
+                            Screen-share the net sheet above in Tella, follow the cues in brackets
+                        </p>
+                    </div>
+                    <CopyButton getText={() => script} label="Copy script" />
+                </div>
+                <div className="card">
+                    <pre className="output" style={{ maxHeight: 'none' }}>{script}</pre>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
