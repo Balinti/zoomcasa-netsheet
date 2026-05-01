@@ -110,10 +110,11 @@
             display: none;
         }
 
-        /* ===== Mom's House skin — activated via ?source=momshouse ===== */
-        /* These rules only apply when the body has class `momshouse`.   */
-        /* Default / Clever / all other flows are untouched.             */
-        body.momshouse {
+        /* ===== White-skin partners — activated via ?source=momshouse or ?source=skool ===== */
+        /* These rules only apply when the body has class `momshouse` or `skool`.            */
+        /* Default / Clever / all other flows are untouched.                                 */
+        body.momshouse,
+        body.skool {
             background: #ffffff;
             color: #18181b;
             --bg-primary: #ffffff;
@@ -689,13 +690,13 @@
         };
 
         // Line item row
-        const LineItem = ({ label, value, percentage, isNegative, highlight, large, editablePct, onPctChange }) => (
+        const LineItem = ({ label, value, percentage, isNegative, highlight, large, editablePct, onPctChange, noBorder }) => (
             <div style={{
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 padding: large ? '16px 0' : '12px 0',
-                borderBottom: highlight ? 'none' : '1px solid var(--border-subtle)'
+                borderBottom: (highlight || noBorder) ? 'none' : '1px solid var(--border-subtle)'
             }}>
                 <span style={{
                     color: highlight ? 'var(--text-primary)' : 'var(--text-secondary)',
@@ -908,15 +909,16 @@
                 setActualMonthsToSell(monthsToSell);
             }, [monthsToSell]);
 
-            // Mom's House skin: toggle body class based on ?source=momshouse.
+            // White-skin partners: toggle body class based on source.
             // Default / Clever / any other source are unaffected.
             useEffect(() => {
+                document.body.classList.remove('momshouse', 'skool');
                 if (source === 'momshouse') {
                     document.body.classList.add('momshouse');
-                } else {
-                    document.body.classList.remove('momshouse');
+                } else if (source === 'skool') {
+                    document.body.classList.add('skool');
                 }
-                return () => document.body.classList.remove('momshouse');
+                return () => document.body.classList.remove('momshouse', 'skool');
             }, [source]);
 
             // Ref for print content
@@ -1190,16 +1192,16 @@ Renovation Budget: ${formatCurrency(renovationBudget || 0)}
 SALE #1 - CASH OFFER
 ========================================
 Current As-Is Market Value: ${formatCurrency(result?.asIsValue || 0)}
-Risk Holdback Premium (${(100 - initialAdvancePct).toFixed(1)}%): -${formatCurrency(c.riskReservePremium || 0)}
+Risk Holdback Escrow (${(100 - initialAdvancePct).toFixed(1)}%): -${formatCurrency(c.riskReservePremium || 0)}
 Est. Initial Advance (${initialAdvancePct}%): ${formatCurrency(c.initialAdvance || 0)}
 Holdback - Renovations: ${renovationBudget ? '-' + formatCurrency(renovationBudget) : 'N/A'}
 Holdback - Listing Agent (${listingAgentPct}%): -${formatCurrency(c.listingAgentCost || 0)}
 Holdback - Buyer's Agent (${buyersAgentPct}%): -${formatCurrency(c.buyersAgentCost || 0)}
-Holdback - Closing Costs Resale (${resaleClosingCostsPct}%): -${formatCurrency(c.resaleClosingCosts || 0)}
+Est. Holdback - Closing Costs - Resale Transaction (${resaleClosingCostsPct}%): -${formatCurrency(c.resaleClosingCosts || 0)}
 Holdback - Program Fee Base (${programFeeBasePct}%): -${formatCurrency(c.programFeeBase || 0)}
 Holdback - Program Fee Carry (${programFeeCarryPct}%): -${formatCurrency(c.programFeeCarry || 0)}
 Est. Mortgage / Debt Payoff: ${mortgageBalance ? '-' + formatCurrency(mortgageBalance) : 'N/A'}
-Closing Costs - Initial Transaction: -${formatCurrency(c.closingCosts || 0)}
+Est. Closing Costs - Purchase Transaction: -${formatCurrency(c.closingCosts || 0)}
 
 >>> Est. Initial Net Proceeds: ${formatCurrency(c.initialNetProceeds || 0)}
 
@@ -1252,7 +1254,7 @@ Initial Estimate - Schedule a Meeting for Final Figures.`;
 
             return (
                 <div style={{ position: 'relative', minHeight: '100vh' }}>
-                    {source !== 'momshouse' && <BackgroundEffects />}
+                    {source !== 'momshouse' && source !== 'skool' && <BackgroundEffects />}
                     
                     <div style={{
                         position: 'relative',
@@ -1266,10 +1268,10 @@ Initial Estimate - Schedule a Meeting for Final Figures.`;
                             {/* Full logo for desktop */}
                             <img
                                 className="logo-full"
-                                src={source === 'momshouse' ? 'moms-house-logo.jpeg' : 'Zoom Casa (white).png'}
-                                alt={source === 'momshouse' ? "Mom's House" : 'Zoom Casa'}
+                                src={source === 'momshouse' ? 'moms-house-logo.jpeg' : source === 'skool' ? 'skool-logo.png' : 'Zoom Casa (white).png'}
+                                alt={source === 'momshouse' ? "Mom's House" : source === 'skool' ? 'Skool' : 'Zoom Casa'}
                                 style={{
-                                    height: source === 'momshouse' ? '220px' : '60px',
+                                    height: source === 'momshouse' ? '220px' : source === 'skool' ? '120px' : '60px',
                                     width: 'auto',
                                     marginBottom: '16px',
                                     marginLeft: 'auto',
@@ -1279,10 +1281,10 @@ Initial Estimate - Schedule a Meeting for Final Figures.`;
                             {/* Symbol logo for mobile */}
                             <img
                                 className="logo-symbol"
-                                src={source === 'momshouse' ? 'moms-house-logo.jpeg' : 'Zoom Casa Symbol White.png'}
-                                alt={source === 'momshouse' ? "Mom's House" : 'Zoom Casa'}
+                                src={source === 'momshouse' ? 'moms-house-logo.jpeg' : source === 'skool' ? 'skool-logo.png' : 'Zoom Casa Symbol White.png'}
+                                alt={source === 'momshouse' ? "Mom's House" : source === 'skool' ? 'Skool' : 'Zoom Casa'}
                                 style={{
-                                    height: source === 'momshouse' ? '180px' : '50px',
+                                    height: source === 'momshouse' ? '180px' : source === 'skool' ? '90px' : '50px',
                                     width: 'auto',
                                     marginBottom: '16px',
                                     marginLeft: 'auto',
@@ -1541,13 +1543,13 @@ Initial Estimate - Schedule a Meeting for Final Figures.`;
                                 {/* Print Header - Only shows in print */}
                                 <div className="print-only print-header" style={{ display: 'none' }}>
                                     <img
-                                        src={source === 'momshouse' ? 'moms-house-logo.jpeg' : 'Zoom Casa (white).png'}
-                                        alt={source === 'momshouse' ? "Mom's House" : 'Zoom Casa'}
+                                        src={source === 'momshouse' ? 'moms-house-logo.jpeg' : source === 'skool' ? 'skool-logo.png' : 'Zoom Casa (white).png'}
+                                        alt={source === 'momshouse' ? "Mom's House" : source === 'skool' ? 'Skool' : 'Zoom Casa'}
                                         style={{
-                                            height: source === 'momshouse' ? '140px' : '40px',
+                                            height: source === 'momshouse' ? '140px' : source === 'skool' ? '80px' : '40px',
                                             width: 'auto',
                                             marginBottom: '8px',
-                                            filter: source === 'momshouse' ? 'none' : 'invert(1)'
+                                            filter: (source === 'momshouse' || source === 'skool') ? 'none' : 'invert(1)'
                                         }}
                                     />
                                     <p style={{ fontSize: '12px', color: '#666', letterSpacing: '2px', textTransform: 'uppercase' }}>
@@ -1751,17 +1753,26 @@ Initial Estimate - Schedule a Meeting for Final Figures.`;
                                 {/* Initial Transaction */}
                                 {computed && (
                                 <SectionCard title="Sale #1 - Cash Offer" titleColor="var(--accent-blue)" delay={2}>
-                                    <LineItem label="Current As-Is Market Value" value={result.asIsValue} />
-                                    <LineItem label="Risk Holdback Premium" value={-computed.riskReservePremium} isNegative percentage={`${(100 - initialAdvancePct).toFixed(1)}%`} />
-                                    <LineItem label="Est. Initial Advance" value={computed.initialAdvance} percentage={`${initialAdvancePct}%`} />
+                                    {/* Valuation sub-box: visually grouped for clarity */}
+                                    <div style={{
+                                        border: '1.5px solid var(--border-accent)',
+                                        borderRadius: '12px',
+                                        padding: '4px 16px',
+                                        marginBottom: '14px',
+                                        background: 'var(--bg-elevated)'
+                                    }}>
+                                        <LineItem label="Current As-Is Market Value" value={result.asIsValue} />
+                                        <LineItem label="Risk Holdback Escrow" value={-computed.riskReservePremium} isNegative percentage={`${(100 - initialAdvancePct).toFixed(1)}%`} />
+                                        <LineItem label="Est. Initial Advance" value={computed.initialAdvance} percentage={`${initialAdvancePct}%`} noBorder />
+                                    </div>
                                     <LineItem label="Holdback - Renovations" value={renovationBudget ? -renovationBudget : null} isNegative />
                                     <LineItem label="Holdback - Resale Brokerage Commissions - Listing Agent" value={-computed.listingAgentCost} isNegative percentage={`${listingAgentPct}%`} />
                                     <LineItem label="Holdback - Resale Brokerage Commissions - Buyer's Agent" value={-computed.buyersAgentCost} isNegative percentage={`${buyersAgentPct}%`} />
-                                    <LineItem label="Holdback - Closing Costs - Resale Transaction" value={-computed.resaleClosingCosts} isNegative percentage={`${resaleClosingCostsPct}%`} />
+                                    <LineItem label="Est. Holdback - Closing Costs - Resale Transaction" value={-computed.resaleClosingCosts} isNegative percentage={`${resaleClosingCostsPct}%`} />
                                     <LineItem label="Holdback - Program Fee (Base)" value={-computed.programFeeBase} isNegative percentage={`${programFeeBasePct}%`} />
                                     <LineItem label="Holdback - Program Fee (Carry)" value={-computed.programFeeCarry} isNegative percentage={`${programFeeCarryPct}%`} />
                                     <LineItem label="Est. Mortgage / Debt Payoff" value={mortgageBalance ? -mortgageBalance : null} isNegative />
-                                    <LineItem label="Closing Costs - Initial Transaction" value={-computed.closingCosts} isNegative />
+                                    <LineItem label="Est. Closing Costs - Purchase Transaction" value={-computed.closingCosts} isNegative />
                                     <LineItem label="Est. Initial Net Proceeds" value={computed.initialNetProceeds} highlight large />
                                 </SectionCard>
                                 )}
