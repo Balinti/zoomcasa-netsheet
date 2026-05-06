@@ -69,6 +69,8 @@
         .logo {
             height: 60px;
             width: auto;
+            max-width: 80%;
+            object-fit: contain;
             margin: 0 auto 16px;
             display: block;
         }
@@ -125,10 +127,46 @@
             font-variant-numeric: tabular-nums;
         }
 
+        .contact-cta {
+            display: block;
+            width: 100%;
+            margin-top: 28px;
+            padding: 16px 20px;
+            background: linear-gradient(135deg, var(--accent-blue) 0%, #2563eb 100%);
+            border: none;
+            border-radius: 12px;
+            color: white;
+            text-align: center;
+            text-decoration: none;
+            cursor: pointer;
+            transition: opacity 0.2s ease, transform 0.1s ease;
+        }
+        .contact-cta:hover { opacity: 0.95; }
+        .contact-cta:active { transform: scale(0.98); }
+        .contact-cta-label {
+            display: block;
+            font-size: 13px;
+            font-weight: 500;
+            opacity: 0.92;
+            margin-bottom: 4px;
+        }
+        .contact-cta-number {
+            display: block;
+            font-size: 19px;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            letter-spacing: 0.5px;
+        }
+
         @media (max-width: 480px) {
+            body { padding: 16px; }
             .card { padding: 32px 24px; }
             h1 { font-size: 22px; }
-            .logo { height: 48px; }
+            .logo {
+                height: auto;
+                max-height: 48px;
+                max-width: 70%;
+            }
         }
     </style>
 </head>
@@ -139,6 +177,10 @@
         <div class="card">
             <h1>Thanks for considering Zoom Casa</h1>
             <div id="content"></div>
+            <a href="tel:7476889904" class="contact-cta">
+                <span class="contact-cta-label">Think you received this in error? Call us</span>
+                <span class="contact-cta-number">(747) 688-9904</span>
+            </a>
         </div>
     </div>
     <script>
