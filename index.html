@@ -876,6 +876,15 @@
             // Prospect data stored after webhook
             const [prospect, setProspect] = useState(null);
 
+            // "Submit the Property" modal state
+            const [submitPropertyOpen, setSubmitPropertyOpen] = useState(false);
+            const [spName, setSpName] = useState('');
+            const [spEmail, setSpEmail] = useState('');
+            const [spPhone, setSpPhone] = useState('');
+            const [spErrors, setSpErrors] = useState({});
+            const [spSubmitting, setSpSubmitting] = useState(false);
+            const [spSubmitted, setSpSubmitted] = useState(false);
+
             // Referral source
             const [source, setSource] = useState('');
 
@@ -1056,6 +1065,61 @@
                 } catch (err) {
                     console.log('Webhook notification sent');
                 }
+            };
+
+            // Open the "Submit the Property" modal, pre-filling any known contact info
+            const handleOpenSubmitProperty = () => {
+                setSpName((prospect?.name || name || '').trim());
+                setSpEmail((prospect?.email || email || '').trim());
+                setSpPhone((prospect?.phone || phone || '').trim());
+                setSpErrors({});
+                setSpSubmitted(false);
+                setSubmitPropertyOpen(true);
+            };
+
+            // Submit the property + contact details to the LeadConnector webhook
+            const handleSubmitProperty = async () => {
+                const newErrors = {};
+                if (!spName.trim()) {
+                    newErrors.name = 'Name is required';
+                }
+                if (!spEmail.trim()) {
+                    newErrors.email = 'Email is required';
+                } else if (!EMAIL_REGEX.test(spEmail.trim())) {
+                    newErrors.email = 'Please enter a valid email address';
+                }
+                if (!spPhone.trim()) {
+                    newErrors.phone = 'Phone number is required';
+                }
+                setSpErrors(newErrors);
+                if (Object.keys(newErrors).length > 0) return;
+
+                setSpSubmitting(true);
+                try {
+                    await fetch(LEADCONNECTOR_WEBHOOK, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            name: spName.trim(),
+                            email: spEmail.trim(),
+                            phone: spPhone.trim(),
+                            address: decodeURIComponent(result?.address || prospect?.address || ''),
+                            type: prospect?.type || role || '',
+                            asIsValue: result?.asIsValue,
+                            afterRepairValue: result?.afterRepairValue,
+                            formType: 'property_submission',
+                            smsConsent: smsConsent,
+                            timestamp: new Date().toISOString(),
+                            source: source || 'netsheet_calculator',
+                            referral: source || ''
+                        })
+                    });
+                } catch (err) {
+                    // LeadConnector returns an opaque response; treat as delivered.
+                    console.log('Property submission sent');
+                }
+                setSpSubmitting(false);
+                setSpSubmitted(true);
             };
 
             const calculateSheet = (asIsValue, addr, arv) => {
@@ -2104,6 +2168,27 @@ Initial Estimate - Schedule a Meeting for Final Figures.`;
                                     </p>
                                 </div>
 
+                                {/* Submit the Property - primary CTA (hidden in print) */}
+                                <button
+                                    className="animate-in delay-5 no-print"
+                                    onClick={handleOpenSubmitProperty}
+                                    style={{
+                                        width: '100%',
+                                        marginBottom: '12px',
+                                        padding: '16px',
+                                        background: 'linear-gradient(135deg, var(--accent-blue), var(--accent-green))',
+                                        border: 'none',
+                                        borderRadius: '12px',
+                                        color: 'white',
+                                        fontSize: '15px',
+                                        fontWeight: 600,
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s ease'
+                                    }}
+                                >
+                                    🏠 Submit the Property
+                                </button>
+
                                 {/* Actions - Hidden in Print */}
                                 <div
                                     className="animate-in delay-5 no-print"
@@ -2220,6 +2305,154 @@ Initial Estimate - Schedule a Meeting for Final Figures.`;
                                 >
                                     ← New Calculation
                                 </button>
+
+                                {/* Submit the Property Modal */}
+                                {submitPropertyOpen && (
+                                    <div
+                                        className="no-print"
+                                        onClick={() => setSubmitPropertyOpen(false)}
+                                        style={{
+                                            position: 'fixed',
+                                            inset: 0,
+                                            background: 'rgba(0, 0, 0, 0.7)',
+                                            backdropFilter: 'blur(4px)',
+                                            WebkitBackdropFilter: 'blur(4px)',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            padding: '16px',
+                                            zIndex: 1000,
+                                            overflowY: 'auto'
+                                        }}
+                                    >
+                                        <div
+                                            onClick={(e) => e.stopPropagation()}
+                                            style={{
+                                                width: '100%',
+                                                maxWidth: '440px',
+                                                background: 'var(--bg-card)',
+                                                border: '1px solid var(--border-accent)',
+                                                borderRadius: '20px',
+                                                padding: '28px 24px',
+                                                position: 'relative',
+                                                maxHeight: '90vh',
+                                                overflowY: 'auto',
+                                                boxShadow: '0 20px 60px rgba(0, 0, 0, 0.4)'
+                                            }}
+                                        >
+                                            <button
+                                                onClick={() => setSubmitPropertyOpen(false)}
+                                                aria-label="Close"
+                                                style={{
+                                                    position: 'absolute',
+                                                    top: '14px',
+                                                    right: '14px',
+                                                    width: '34px',
+                                                    height: '34px',
+                                                    borderRadius: '50%',
+                                                    border: '1px solid var(--border-accent)',
+                                                    background: 'var(--bg-elevated)',
+                                                    color: 'var(--text-secondary)',
+                                                    fontSize: '16px',
+                                                    cursor: 'pointer',
+                                                    lineHeight: 1,
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center'
+                                                }}
+                                            >
+                                                ✕
+                                            </button>
+
+                                            {spSubmitted ? (
+                                                <div style={{ textAlign: 'center', padding: '24px 0 8px' }}>
+                                                    <div style={{ fontSize: '46px', marginBottom: '12px' }}>✅</div>
+                                                    <h3 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '8px' }}>
+                                                        Property Submitted
+                                                    </h3>
+                                                    <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '22px' }}>
+                                                        Thanks{spName ? `, ${spName.trim().split(' ')[0]}` : ''}! Our team will reach out to you shortly.
+                                                    </p>
+                                                    <button
+                                                        onClick={() => setSubmitPropertyOpen(false)}
+                                                        style={{
+                                                            width: '100%',
+                                                            padding: '14px',
+                                                            background: 'linear-gradient(135deg, var(--accent-blue), var(--accent-green))',
+                                                            border: 'none',
+                                                            borderRadius: '12px',
+                                                            color: 'white',
+                                                            fontSize: '15px',
+                                                            fontWeight: 600,
+                                                            cursor: 'pointer'
+                                                        }}
+                                                    >
+                                                        Done
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <React.Fragment>
+                                                    <h3 style={{ fontSize: '22px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '6px', paddingRight: '34px' }}>
+                                                        Submit the Property
+                                                    </h3>
+                                                    <p style={{ fontSize: '14px', color: 'var(--text-muted)', marginBottom: '22px' }}>
+                                                        Confirm your details and our team will follow up with next steps.
+                                                    </p>
+
+                                                    <GlowInput
+                                                        value={spName}
+                                                        onChange={(e) => setSpName(e.target.value)}
+                                                        placeholder="John Smith"
+                                                        label="Full Name"
+                                                        required
+                                                        error={spErrors.name}
+                                                    />
+                                                    <GlowInput
+                                                        type="tel"
+                                                        value={spPhone}
+                                                        onChange={(e) => setSpPhone(e.target.value)}
+                                                        placeholder="(555) 123-4567"
+                                                        label="Phone Number"
+                                                        required
+                                                        error={spErrors.phone}
+                                                    />
+                                                    <GlowInput
+                                                        type="email"
+                                                        value={spEmail}
+                                                        onChange={(e) => setSpEmail(e.target.value)}
+                                                        placeholder="john@example.com"
+                                                        label="Email Address"
+                                                        required
+                                                        error={spErrors.email}
+                                                    />
+
+                                                    <button
+                                                        onClick={handleSubmitProperty}
+                                                        disabled={spSubmitting}
+                                                        style={{
+                                                            width: '100%',
+                                                            marginTop: '8px',
+                                                            padding: '16px',
+                                                            background: spSubmitting
+                                                                ? 'var(--bg-elevated)'
+                                                                : 'linear-gradient(135deg, var(--accent-blue), var(--accent-green))',
+                                                            border: 'none',
+                                                            borderRadius: '12px',
+                                                            color: 'white',
+                                                            fontSize: '15px',
+                                                            fontWeight: 600,
+                                                            cursor: spSubmitting ? 'default' : 'pointer',
+                                                            opacity: spSubmitting ? 0.7 : 1,
+                                                            transition: 'all 0.2s ease'
+                                                        }}
+                                                    >
+                                                        {spSubmitting ? 'Submitting…' : 'Submit Property'}
+                                                    </button>
+                                                </React.Fragment>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
