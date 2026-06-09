@@ -363,6 +363,21 @@
         // LeadConnector Webhook URL
         const LEADCONNECTOR_WEBHOOK = 'https://services.leadconnectorhq.com/hooks/KHb9kYgOdPilgZLkB1dL/webhook-trigger/7a2e3342-0d66-4704-8ba8-90f515d46a3e';
 
+        // Normalize an address before sending it to the zc-eval valuation webhook.
+        // Google Places appends ", USA" (and sometimes ", United States"), which
+        // causes a cache miss on the primary (Epique) valuation source and makes
+        // zc-eval cascade down to the county tax-assessed value — a ~40%-of-market
+        // lowball that has wrongly bounced eligible sellers to not-eligible.html.
+        // Stripping the trailing country + collapsing whitespace makes the address
+        // match the canonical form the good source is keyed on.
+        const normalizeAddress = (addr) => {
+            if (!addr) return '';
+            return addr
+                .replace(/\s*,\s*(USA|United States(?: of America)?)\s*$/i, '')
+                .replace(/\s+/g, ' ')
+                .trim();
+        };
+
         // Form steps
         const FORM_STEPS = {
             CONTACT: 'contact',
@@ -1209,7 +1224,7 @@
                         {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ address: address.trim() })
+                            body: JSON.stringify({ address: normalizeAddress(address) })
                         }
                     );
 
