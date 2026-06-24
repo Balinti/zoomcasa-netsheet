@@ -907,6 +907,10 @@
             const [mortgageBalance, setMortgageBalance] = useState(0);
             const [renovationBudget, setRenovationBudget] = useState(0);
             const [afterRepairValue, setAfterRepairValue] = useState(0);
+            // User-adjustable working value for the As-Is evaluation. null = use our
+            // original AVM. Edits only affect the on-screen calculations + emailed sheet;
+            // the GHL webhook always sends the original result.asIsValue.
+            const [adjustedValue, setAdjustedValue] = useState(null);
 
             // Editable percentages
             const [initialAdvancePct, setInitialAdvancePct] = useState(85);
@@ -1152,7 +1156,7 @@
             // Compute all derived values reactively from state
             const computeSheet = () => {
                 if (!result) return null;
-                const asIsValue = result.asIsValue;
+                const asIsValue = adjustedValue != null ? adjustedValue : result.asIsValue;
                 const arv = afterRepairValue || asIsValue;
                 const initialAdvance = Math.round(asIsValue * initialAdvancePct / 100);
                 const riskReservePremium = asIsValue - initialAdvance;
@@ -1177,6 +1181,7 @@
                 const fiveMonthTotal = monthlyTotal * 5;
 
                 return {
+                    asIsValue,
                     initialAdvance,
                     riskReservePremium,
                     listingAgentCost,
@@ -1207,6 +1212,7 @@
 
                 setLoading(true);
                 setGlobalError('');
+                setAdjustedValue(null);
 
                 // Store prospect data
                 const prospectData = {
@@ -1265,7 +1271,7 @@ ${addr}
 ========================================
 PROPERTY DETAILS
 ========================================
-As-Is Value: ${formatCurrency(result?.asIsValue || 0)}
+As-Is Value: ${formatCurrency(c.asIsValue || result?.asIsValue || 0)}
 After Repair Value: ${formatCurrency(afterRepairValue || 0)}
 Mortgage Balance: ${formatCurrency(mortgageBalance || 0)}
 Renovation Budget: ${formatCurrency(renovationBudget || 0)}
@@ -1273,7 +1279,7 @@ Renovation Budget: ${formatCurrency(renovationBudget || 0)}
 ========================================
 SALE #1 - CASH OFFER
 ========================================
-Current As-Is Market Value: ${formatCurrency(result?.asIsValue || 0)}
+Current As-Is Market Value: ${formatCurrency(c.asIsValue || result?.asIsValue || 0)}
 Risk Holdback Escrow (${(100 - initialAdvancePct).toFixed(1)}%): -${formatCurrency(c.riskReservePremium || 0)}
 Est. Initial Advance (${initialAdvancePct}%): ${formatCurrency(c.initialAdvance || 0)}
 Holdback - Renovations: ${renovationBudget ? '-' + formatCurrency(renovationBudget) : 'N/A'}
@@ -1727,7 +1733,7 @@ Initial Estimate - Schedule a Meeting for Final Figures.`;
                                         gap: '12px'
                                     }}>
                                         {[
-                                            { label: 'As Is Value', value: result.asIsValue, readOnly: true },
+                                            { label: 'As Is Value', value: (computed ? computed.asIsValue : result.asIsValue), onChange: (v) => setAdjustedValue(v) },
                                             { label: 'After Repair Value', value: afterRepairValue, onChange: (v) => setAfterRepairValue(v) },
                                             { label: 'Mortgage Balance', value: mortgageBalance, onChange: (v) => setMortgageBalance(v) },
                                             { label: 'Renovation Budget', value: renovationBudget, onChange: (v) => setRenovationBudget(v) }
@@ -1780,6 +1786,14 @@ Initial Estimate - Schedule a Meeting for Final Figures.`;
                                             </div>
                                         ))}
                                     </div>
+                                    <p style={{
+                                        fontSize: '11px',
+                                        color: 'var(--text-muted)',
+                                        marginTop: '10px',
+                                        lineHeight: 1.5
+                                    }}>
+                                        💡 This is our initial evaluation. You're welcome to adjust it for your own calculations — the other figures update automatically.
+                                    </p>
                                 </div>
 
                                 {/* Months to Sell */}
@@ -1843,7 +1857,7 @@ Initial Estimate - Schedule a Meeting for Final Figures.`;
                                         marginBottom: '14px',
                                         background: 'var(--bg-elevated)'
                                     }}>
-                                        <LineItem label="Current As-Is Market Value" value={result.asIsValue} />
+                                        <LineItem label="Current As-Is Market Value" value={computed.asIsValue} />
                                         <LineItem label="Risk Holdback Escrow" value={-computed.riskReservePremium} isNegative percentage={`${(100 - initialAdvancePct).toFixed(1)}%`} />
                                         <LineItem label="Est. Initial Advance" value={computed.initialAdvance} percentage={`${initialAdvancePct}%`} noBorder />
                                     </div>
@@ -2282,6 +2296,7 @@ Initial Estimate - Schedule a Meeting for Final Figures.`;
                                     className="no-print"
                                     onClick={() => {
                                         setResult(null);
+                                        setAdjustedValue(null);
                                         setProspect(null);
                                         setAddress('');
                                         setName('');
