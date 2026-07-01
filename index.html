@@ -1208,6 +1208,35 @@
 
             const computed = computeSheet();
 
+            // When the seller adjusts the As-Is value, push the modified numbers
+            // to GHL (debounced) so the existing contact reflects the change.
+            useEffect(() => {
+                if (!prospect || adjustedValue == null || !computed) return;
+                const t = setTimeout(() => {
+                    fetch(LEADCONNECTOR_WEBHOOK, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            name: prospect.name,
+                            email: prospect.email,
+                            phone: prospect.phone,
+                            address: prospect.address,
+                            type: prospect.type,
+                            asIsValue: result?.asIsValue,
+                            modified: true,
+                            modifiedAsIsValue: adjustedValue,
+                            modifiedTotalNetProceeds: computed.totalNetProceeds,
+                            formType: 'netsheet_modified',
+                            smsConsent: smsConsent,
+                            timestamp: new Date().toISOString(),
+                            source: source || 'netsheet_calculator',
+                            referral: source || ''
+                        })
+                    }).catch(() => {});
+                }, 1500);
+                return () => clearTimeout(t);
+            }, [adjustedValue]);
+
             const handleCalculate = async () => {
                 if (!validateAddress()) {
                     return;
