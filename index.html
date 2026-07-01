@@ -362,6 +362,9 @@
 
         // LeadConnector Webhook URL
         const LEADCONNECTOR_WEBHOOK = 'https://services.leadconnectorhq.com/hooks/KHb9kYgOdPilgZLkB1dL/webhook-trigger/7a2e3342-0d66-4704-8ba8-90f515d46a3e';
+        // Adds a "numbers-modified" tag + a note (with the adjusted figures) to the
+        // GHL contact via n8n, so it shows on the lead without GHL workflow mapping.
+        const MODIFIED_NOTE_WEBHOOK = 'https://n8n.srv936332.hstgr.cloud/webhook/zc-modified-note';
 
         // Normalize an address before sending it to the zc-eval valuation webhook.
         // Google Places appends ", USA" (and sometimes ", United States"), which
@@ -1137,6 +1140,18 @@
                             referral: source || ''
                         })
                     });
+                    if (adjustedValue != null && computed) {
+                        fetch(MODIFIED_NOTE_WEBHOOK, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                email: spEmail.trim(),
+                                asIsValue: result?.asIsValue,
+                                modifiedAsIsValue: adjustedValue,
+                                modifiedTotalNetProceeds: computed.totalNetProceeds
+                            })
+                        }).catch(() => {});
+                    }
                 } catch (err) {
                     // LeadConnector returns an opaque response; treat as delivered.
                     console.log('Property submission sent');
@@ -1233,6 +1248,16 @@
                             timestamp: new Date().toISOString(),
                             source: source || 'netsheet_calculator',
                             referral: source || ''
+                        })
+                    }).catch(() => {});
+                    fetch(MODIFIED_NOTE_WEBHOOK, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            email: prospect.email,
+                            asIsValue: result?.asIsValue,
+                            modifiedAsIsValue: adjustedValue,
+                            modifiedTotalNetProceeds: computed.totalNetProceeds
                         })
                     }).catch(() => {});
                 }, 1500);
