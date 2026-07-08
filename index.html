@@ -30,22 +30,17 @@
         }
 
         :root {
-            --bg-primary: #0a0a0b;
-            --bg-secondary: #111113;
-            --bg-card: #18181b;
-            --bg-elevated: #1f1f23;
-            --text-primary: #fafafa;
-            --text-secondary: #a1a1aa;
-            --text-muted: #71717a;
-            --accent-blue: #3b82f6;
-            --accent-blue-glow: rgba(59, 130, 246, 0.4);
-            --accent-green: #10b981;
-            --accent-green-glow: rgba(16, 185, 129, 0.4);
-            --accent-gold: #f59e0b;
-            --border-subtle: rgba(255, 255, 255, 0.06);
-            --border-accent: rgba(255, 255, 255, 0.1);
-            --gradient-mesh: radial-gradient(ellipse at 20% 0%, rgba(59, 130, 246, 0.15) 0%, transparent 50%),
-                            radial-gradient(ellipse at 80% 100%, rgba(16, 185, 129, 0.1) 0%, transparent 50%);
+            /* Editorial Real (matches new zoomcasa.com) — default + Clever */
+            --bg-primary: #FAF7F0; --bg-secondary: #FEFCF7; --bg-card: #FEFCF7; --bg-elevated: #F4EFE3;
+            --text-primary: #0A0A0A; --text-secondary: #4A4A4A; --text-muted: #6B6B6B;
+            --accent-blue: #B91C1C; --accent-blue-glow: rgba(185,28,28,0.16);
+            --accent-green: #166534; --accent-green-glow: rgba(22,101,52,0.16);
+            --accent-gold: #B45309;
+            --border-subtle: rgba(0,0,0,0.06); --border-accent: #D7CFC1;
+            --btn-primary: #B91C1C; --btn-shimmer: #B91C1C;
+            --banner-bg: rgba(185,28,28,0.08); --banner-border: rgba(185,28,28,0.22);
+            --gradient-mesh: radial-gradient(ellipse at 20% 0%, rgba(185,28,28,0.05) 0%, transparent 55%),
+                            radial-gradient(ellipse at 80% 100%, rgba(212,175,55,0.05) 0%, transparent 55%);
         }
 
         body {
@@ -56,9 +51,11 @@
             overflow-x: hidden;
         }
 
-        #root {
-            min-height: 100vh;
-        }
+        #root { min-height: 100vh; }
+        body:not(.momshouse):not(.skool):not(.ezhomesearch) img[alt="Zoom Casa"] { filter: invert(1) !important; }
+        body:not(.momshouse):not(.skool):not(.ezhomesearch) h1,
+        body:not(.momshouse):not(.skool):not(.ezhomesearch) h2,
+        body:not(.momshouse):not(.skool):not(.ezhomesearch) h3 { font-family: 'Playfair Display', Georgia, serif !important; }
 
         @keyframes fadeInUp {
             from {
@@ -127,8 +124,13 @@
             --text-muted: #71717a;
             --border-subtle: rgba(0, 0, 0, 0.08);
             --border-accent: rgba(0, 0, 0, 0.14);
+            /* keep partner skins byte-for-byte: original accents, gradients, banner */
+            --accent-blue: #3b82f6; --accent-green: #10b981; --accent-gold: #f59e0b;
             --accent-blue-glow: rgba(59, 130, 246, 0.18);
             --accent-green-glow: rgba(16, 185, 129, 0.18);
+            --btn-primary: linear-gradient(135deg, #3b82f6, #10b981);
+            --btn-shimmer: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
+            --banner-bg: rgba(59, 130, 246, 0.08); --banner-border: rgba(59, 130, 246, 0.2);
         }
 
         @media (max-width: 480px) {
@@ -545,7 +547,7 @@
                         background: error
                             ? 'linear-gradient(135deg, #ef4444, #f87171)'
                             : focused
-                                ? 'linear-gradient(135deg, var(--accent-blue), var(--accent-green))'
+                                ? 'var(--btn-primary)'
                                 : 'transparent',
                         opacity: (focused || error) ? 1 : 0,
                         transition: 'opacity 0.3s ease',
@@ -618,7 +620,7 @@
                         background: error
                             ? 'linear-gradient(135deg, #ef4444, #f87171)'
                             : focused
-                                ? 'linear-gradient(135deg, var(--accent-blue), var(--accent-green))'
+                                ? 'var(--btn-primary)'
                                 : 'transparent',
                         opacity: (focused || error) ? 1 : 0,
                         transition: 'opacity 0.3s ease',
@@ -678,7 +680,7 @@
                         fontFamily: 'inherit',
                         background: loading 
                             ? 'var(--bg-elevated)'
-                            : 'linear-gradient(135deg, var(--accent-blue) 0%, #6366f1 100%)',
+                            : 'var(--btn-shimmer)',
                         border: 'none',
                         borderRadius: '14px',
                         color: 'white',
@@ -1746,9 +1748,9 @@ Initial Estimate - Schedule a Meeting for Final Figures.`;
                                 <div className="animate-in" style={{
                                     marginBottom: '16px',
                                     padding: '12px 20px',
-                                    background: 'rgba(59, 130, 246, 0.08)',
+                                    background: 'var(--banner-bg)',
                                     borderRadius: '10px',
-                                    border: '1px solid rgba(59, 130, 246, 0.2)',
+                                    border: '1px solid var(--banner-border)',
                                     textAlign: 'center'
                                 }}>
                                     <p style={{
@@ -2264,7 +2266,7 @@ Initial Estimate - Schedule a Meeting for Final Figures.`;
                                         width: '100%',
                                         marginBottom: '12px',
                                         padding: '16px',
-                                        background: 'linear-gradient(135deg, var(--accent-blue), var(--accent-green))',
+                                        background: 'var(--btn-primary)',
                                         border: 'none',
                                         borderRadius: '12px',
                                         color: 'white',
@@ -2467,7 +2469,7 @@ Initial Estimate - Schedule a Meeting for Final Figures.`;
                                                         style={{
                                                             width: '100%',
                                                             padding: '14px',
-                                                            background: 'linear-gradient(135deg, var(--accent-blue), var(--accent-green))',
+                                                            background: 'var(--btn-primary)',
                                                             border: 'none',
                                                             borderRadius: '12px',
                                                             color: 'white',
@@ -2524,7 +2526,7 @@ Initial Estimate - Schedule a Meeting for Final Figures.`;
                                                             padding: '16px',
                                                             background: spSubmitting
                                                                 ? 'var(--bg-elevated)'
-                                                                : 'linear-gradient(135deg, var(--accent-blue), var(--accent-green))',
+                                                                : 'var(--btn-primary)',
                                                             border: 'none',
                                                             borderRadius: '12px',
                                                             color: 'white',
