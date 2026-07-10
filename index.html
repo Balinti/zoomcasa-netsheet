@@ -367,6 +367,8 @@
         // Adds a "numbers-modified" tag + a note (with the adjusted figures) to the
         // GHL contact via n8n, so it shows on the lead without GHL workflow mapping.
         const MODIFIED_NOTE_WEBHOOK = 'https://n8n.srv936332.hstgr.cloud/webhook/zc-modified-note';
+        // Clever signature-validated lead capture (only fires on ?source=clever with a valid sig).
+        const CLEVER_LEAD_WEBHOOK = 'https://n8n.srv936332.hstgr.cloud/webhook/clever-lead';
 
         // Normalize an address before sending it to the zc-eval valuation webhook.
         // Google Places appends ", USA" (and sometimes ", United States"), which
@@ -917,6 +919,17 @@
             // the GHL webhook always sends the original result.asIsValue.
             const [adjustedValue, setAdjustedValue] = useState(null);
 
+            // Clever finalise-offer capture (signature-validated). sig/exp come from the
+            // signed URL clever-eval minted; the form posts them to clever-lead.
+            const [cleverSig, setCleverSig] = useState('');
+            const [cleverExp, setCleverExp] = useState('');
+            const [cfName, setCfName] = useState('');
+            const [cfEmail, setCfEmail] = useState('');
+            const [cfPhone, setCfPhone] = useState('');
+            const [cfErrors, setCfErrors] = useState({});
+            const [cfSubmitting, setCfSubmitting] = useState(false);
+            const [cfSubmitted, setCfSubmitted] = useState(false);
+
             // Editable percentages
             const [initialAdvancePct, setInitialAdvancePct] = useState(85);
             const [listingAgentPct, setListingAgentPct] = useState(3);
@@ -965,6 +978,10 @@
                 const params = new URLSearchParams(window.location.search);
                 const urlSource = params.get('source');
                 if (urlSource) setSource(urlSource.toLowerCase());
+                const urlSig = params.get('sig');
+                const urlExp = params.get('exp');
+                if (urlSig) setCleverSig(urlSig);
+                if (urlExp) setCleverExp(urlExp);
                 const urlAddress = params.get('address');
                 const urlValue = params.get('value');
                 const urlMortgage = params.get('mortgage');
@@ -1092,6 +1109,43 @@
             };
 
             // Open the "Submit the Property" modal, pre-filling any known contact info
+            // Clever "Submit & Finalise Offer" — posts the captured contact + the signed
+            // sig/exp to clever-lead, which verifies the signature before creating the lead.
+            const handleCleverFinalise = async () => {
+                const errs = {};
+                if (!cfName.trim()) errs.name = 'Name is required';
+                if (!cfEmail.trim()) errs.email = 'Email is required';
+                else if (!EMAIL_REGEX.test(cfEmail.trim())) errs.email = 'Enter a valid email';
+                if (!cfPhone.trim()) errs.phone = 'Phone is required';
+                setCfErrors(errs);
+                if (Object.keys(errs).length) return;
+                setCfSubmitting(true);
+                try {
+                    const res = await fetch(CLEVER_LEAD_WEBHOOK, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            name: cfName.trim(),
+                            email: cfEmail.trim(),
+                            phone: cfPhone.trim(),
+                            address: decodeURIComponent(result?.address || ''),
+                            value: result?.asIsValue,
+                            exp: cleverExp,
+                            sig: cleverSig
+                        })
+                    });
+                    const data = await res.json().catch(() => ({}));
+                    if (data && data.ok) {
+                        setCfSubmitted(true);
+                    } else {
+                        setCfErrors({ form: 'We could not verify this link. Please contact us to finalise.' });
+                    }
+                } catch (err) {
+                    setCfErrors({ form: 'Something went wrong. Please try again.' });
+                }
+                setCfSubmitting(false);
+            };
+
             const handleOpenSubmitProperty = () => {
                 setSpName((prospect?.name || name || '').trim());
                 setSpEmail((prospect?.email || email || '').trim());
@@ -1942,6 +1996,66 @@ Initial Estimate - Schedule a Meeting for Final Figures.`;
                                     <LineItem label="Credit - Unused Carry Program Fee" value={computed.unusedCarryCredit} percentage={`${Math.max(0, monthsToSell - actualMonthsToSell)}/${monthsToSell}`} />
                                     <LineItem label="Additional Net Proceeds" value={computed.additionalNetProceeds} highlight large />
                                 </SectionCard>
+                                )}
+
+                                {/* Clever: Submit & Finalise Offer (signature-validated lead capture) */}
+                                {source === 'clever' && cleverSig && (
+                                <div
+                                    className="animate-in delay-4"
+                                    style={{
+                                        background: 'var(--bg-card)',
+                                        borderRadius: '20px',
+                                        padding: '28px',
+                                        marginBottom: '16px',
+                                        border: '1px solid var(--border-accent)'
+                                    }}
+                                >
+                                    {cfSubmitted ? (
+                                        <div style={{ textAlign: 'center', padding: '12px 0' }}>
+                                            <div style={{ fontSize: '42px', marginBottom: '10px' }}>✅</div>
+                                            <h3 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '8px' }}>
+                                                Offer Submitted
+                                            </h3>
+                                            <p style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
+                                                Thanks{cfName ? ', ' + cfName.trim().split(' ')[0] : ''}! Our team will reach out to finalise your offer.
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        <React.Fragment>
+                                            <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '6px' }}>
+                                                Submit &amp; Finalise Offer
+                                            </h3>
+                                            <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '20px' }}>
+                                                Confirm your details and our team will finalise your cash offer.
+                                            </p>
+                                            <GlowInput value={cfName} onChange={(e) => setCfName(e.target.value)} placeholder="John Smith" label="Full Name" required error={cfErrors.name} />
+                                            <GlowInput type="tel" value={cfPhone} onChange={(e) => setCfPhone(e.target.value)} placeholder="(555) 123-4567" label="Phone Number" required error={cfErrors.phone} />
+                                            <GlowInput type="email" value={cfEmail} onChange={(e) => setCfEmail(e.target.value)} placeholder="john@example.com" label="Email Address" required error={cfErrors.email} />
+                                            {cfErrors.form && (
+                                                <p style={{ fontSize: '13px', color: '#ef4444', marginBottom: '12px' }}>{cfErrors.form}</p>
+                                            )}
+                                            <button
+                                                onClick={handleCleverFinalise}
+                                                disabled={cfSubmitting}
+                                                style={{
+                                                    width: '100%',
+                                                    marginTop: '8px',
+                                                    padding: '16px',
+                                                    background: cfSubmitting ? 'var(--bg-elevated)' : 'var(--accent-green)',
+                                                    border: 'none',
+                                                    borderRadius: '12px',
+                                                    color: 'white',
+                                                    fontSize: '15px',
+                                                    fontWeight: 600,
+                                                    cursor: cfSubmitting ? 'default' : 'pointer',
+                                                    opacity: cfSubmitting ? 0.7 : 1
+                                                }}
+                                            >
+                                                {cfSubmitting ? 'Submitting…' : 'Submit & Finalise Offer'}
+                                            </button>
+                                        </React.Fragment>
+                                    )}
+                                </div>
                                 )}
 
                                 {/* Clever: How to Finalize an Offer */}
