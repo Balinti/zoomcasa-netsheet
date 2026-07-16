@@ -367,8 +367,18 @@
         // Adds a "numbers-modified" tag + a note (with the adjusted figures) to the
         // GHL contact via n8n, so it shows on the lead without GHL workflow mapping.
         const MODIFIED_NOTE_WEBHOOK = 'https://n8n.srv936332.hstgr.cloud/webhook/zc-modified-note';
-        // Clever signature-validated lead capture (only fires on ?source=clever with a valid sig).
+        // Clever signature-validated lead capture. Used only when the link carries a `sig`;
+        // unsigned Clever links capture through LEADCONNECTOR_WEBHOOK instead.
         const CLEVER_LEAD_WEBHOOK = 'https://n8n.srv936332.hstgr.cloud/webhook/clever-lead';
+        // Booking calendars. Clever traffic books on the dedicated "Zoom Casa / Clever
+        // Quick Call." calendar so partner-sourced meetings are identifiable in GHL.
+        const BOOKING_LINK_DEFAULT = 'https://api.xtract.ai/widget/booking/dtRPSJLdtmaR3H0xNtPT';
+        const BOOKING_LINK_CLEVER  = 'https://api.xtract.ai/widget/booking/nOnbdFpBdi7qK5kvCkil';
+        // Clever leads must land under ONE source in GHL so they can actually be counted.
+        // GHL's inbound workflow prefixes this with "Netsheet - ", giving "Netsheet - Clever"
+        // (same convention as "Netsheet - Epique" / "Netsheet - Wyzegyde"). The URL may carry
+        // either `clever` or `netsheet_clever`; neither is used as the CRM label.
+        const CLEVER_SOURCE_LABEL = 'Clever';
 
         // Normalize an address before sending it to the zc-eval valuation webhook.
         // Google Places appends ", USA" (and sometimes ", United States"), which
@@ -956,6 +966,11 @@
                 setActualMonthsToSell(monthsToSell);
             }, [monthsToSell]);
 
+            // Clever arrives under two source values: `clever` (signed links minted by the
+            // clever-eval webhook) and `netsheet_clever` (appended by zc-eval when it detects
+            // Clever's server-side pings). Both must get the Clever treatment.
+            const isClever = source === 'clever' || source === 'netsheet_clever';
+
             // White-skin partners: toggle body class based on source.
             // Default / Clever / any other source are unaffected.
             useEffect(() => {
@@ -1099,8 +1114,8 @@
                             totalNetProceeds: totalNet,
                             smsConsent: smsConsent,
                             timestamp: new Date().toISOString(),
-                            source: source || 'netsheet_calculator',
-                            referral: source || ''
+                            source: isClever ? CLEVER_SOURCE_LABEL : (source || 'netsheet_calculator'),
+                            referral: isClever ? CLEVER_SOURCE_LABEL : (source || '')
                         })
                     });
                 } catch (err) {
@@ -1121,24 +1136,50 @@
                 if (Object.keys(errs).length) return;
                 setCfSubmitting(true);
                 try {
-                    const res = await fetch(CLEVER_LEAD_WEBHOOK, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            name: cfName.trim(),
-                            email: cfEmail.trim(),
-                            phone: cfPhone.trim(),
-                            address: decodeURIComponent(result?.address || ''),
-                            value: result?.asIsValue,
-                            exp: cleverExp,
-                            sig: cleverSig
-                        })
-                    });
-                    const data = await res.json().catch(() => ({}));
-                    if (data && data.ok) {
-                        setCfSubmitted(true);
+                    if (cleverSig) {
+                        // Signed link: clever-lead re-computes the HMAC and rejects tampering.
+                        const res = await fetch(CLEVER_LEAD_WEBHOOK, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                name: cfName.trim(),
+                                email: cfEmail.trim(),
+                                phone: cfPhone.trim(),
+                                address: decodeURIComponent(result?.address || ''),
+                                value: result?.asIsValue,
+                                exp: cleverExp,
+                                sig: cleverSig
+                            })
+                        });
+                        const data = await res.json().catch(() => ({}));
+                        if (data && data.ok) {
+                            setCfSubmitted(true);
+                        } else {
+                            setCfErrors({ form: 'We could not verify this link. Please contact us to finalise.' });
+                        }
                     } else {
-                        setCfErrors({ form: 'We could not verify this link. Please contact us to finalise.' });
+                        // Unsigned Clever link (partner link template): no signature to verify,
+                        // so capture through the standard lead webhook, attributed to Clever.
+                        // GHL prefixes source with "Netsheet - ", so send the bare partner name
+                        // to land on "Netsheet - Clever" — matching Epique/Wyzegyde.
+                        await fetch(LEADCONNECTOR_WEBHOOK, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                name: cfName.trim(),
+                                email: cfEmail.trim(),
+                                phone: cfPhone.trim(),
+                                type: 'Realtor',
+                                address: decodeURIComponent(result?.address || ''),
+                                asIsValue: result?.asIsValue,
+                                afterRepairValue: result?.afterRepairValue,
+                                smsConsent: false,
+                                timestamp: new Date().toISOString(),
+                                source: CLEVER_SOURCE_LABEL,
+                                referral: CLEVER_SOURCE_LABEL
+                            })
+                        });
+                        setCfSubmitted(true);
                     }
                 } catch (err) {
                     setCfErrors({ form: 'Something went wrong. Please try again.' });
@@ -1192,8 +1233,8 @@
                             formType: 'property_submission',
                             smsConsent: smsConsent,
                             timestamp: new Date().toISOString(),
-                            source: source || 'netsheet_calculator',
-                            referral: source || ''
+                            source: isClever ? CLEVER_SOURCE_LABEL : (source || 'netsheet_calculator'),
+                            referral: isClever ? CLEVER_SOURCE_LABEL : (source || '')
                         })
                     });
                     if (adjustedValue != null && computed) {
@@ -1302,8 +1343,8 @@
                             formType: 'netsheet_modified',
                             smsConsent: smsConsent,
                             timestamp: new Date().toISOString(),
-                            source: source || 'netsheet_calculator',
-                            referral: source || ''
+                            source: isClever ? CLEVER_SOURCE_LABEL : (source || 'netsheet_calculator'),
+                            referral: isClever ? CLEVER_SOURCE_LABEL : (source || '')
                         })
                     }).catch(() => {});
                     fetch(MODIFIED_NOTE_WEBHOOK, {
@@ -1502,6 +1543,31 @@ Initial Estimate - Schedule a Meeting for Final Figures.`;
                             }}>
                                 Net Sheet Calculator
                             </p>
+                            {/* Clever co-brand. Zoom Casa stays primary — this is Zoom Casa's
+                                offer — with Clever shown as the referring partner. */}
+                            {isClever && (
+                                <div style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '10px',
+                                    marginTop: '18px'
+                                }}>
+                                    <span style={{
+                                        color: 'var(--text-muted)',
+                                        fontSize: '11px',
+                                        letterSpacing: '1.5px',
+                                        textTransform: 'uppercase'
+                                    }}>
+                                        In partnership with
+                                    </span>
+                                    <img
+                                        src="clever-logo.svg"
+                                        alt="Clever"
+                                        style={{ height: '22px', width: 'auto' }}
+                                    />
+                                </div>
+                            )}
                         </div>
 
                         {/* Input Section - Multi-step Form */}
@@ -1998,8 +2064,10 @@ Initial Estimate - Schedule a Meeting for Final Figures.`;
                                 </SectionCard>
                                 )}
 
-                                {/* Clever: Submit & Finalise Offer (signature-validated lead capture) */}
-                                {source === 'clever' && cleverSig && (
+                                {/* Clever: Submit & Finalise Offer. Signed links are validated by
+                                    clever-lead; unsigned Clever links fall back to the standard
+                                    LeadConnector webhook so partner links still capture the lead. */}
+                                {isClever && (
                                 <div
                                     className="animate-in delay-4"
                                     style={{
@@ -2019,6 +2087,26 @@ Initial Estimate - Schedule a Meeting for Final Figures.`;
                                             <p style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
                                                 Thanks{cfName ? ', ' + cfName.trim().split(' ')[0] : ''}! Our team will reach out to finalise your offer.
                                             </p>
+                                            <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '14px', marginBottom: '14px' }}>
+                                                Want a firm offer sooner? Book a call with our team.
+                                            </p>
+                                            <a
+                                                href={BOOKING_LINK_CLEVER}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                style={{
+                                                    display: 'inline-block',
+                                                    padding: '13px 26px',
+                                                    background: 'var(--btn-primary)',
+                                                    borderRadius: '12px',
+                                                    color: 'white',
+                                                    fontSize: '14px',
+                                                    fontWeight: 600,
+                                                    textDecoration: 'none'
+                                                }}
+                                            >
+                                                📅 Book a Call
+                                            </a>
                                         </div>
                                     ) : (
                                         <React.Fragment>
@@ -2059,7 +2147,7 @@ Initial Estimate - Schedule a Meeting for Final Figures.`;
                                 )}
 
                                 {/* Clever: How to Finalize an Offer */}
-                                {source === 'clever' && (
+                                {isClever && (
                                 <div
                                     className="animate-in delay-4"
                                     style={{
@@ -2150,7 +2238,7 @@ Initial Estimate - Schedule a Meeting for Final Figures.`;
                                         </div>
                                     </div>
                                     <a
-                                        href="https://api.xtract.ai/widget/booking/dtRPSJLdtmaR3H0xNtPT"
+                                        href={BOOKING_LINK_CLEVER}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         style={{
@@ -2423,7 +2511,7 @@ Initial Estimate - Schedule a Meeting for Final Figures.`;
                                         📞 Call
                                     </a>
                                     <a
-                                        href="https://api.xtract.ai/widget/booking/dtRPSJLdtmaR3H0xNtPT"
+                                        href={isClever ? BOOKING_LINK_CLEVER : BOOKING_LINK_DEFAULT}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         style={{
