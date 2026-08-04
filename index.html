@@ -2206,10 +2206,10 @@ Initial Estimate - Schedule a Meeting for Final Figures.`;
                                             }}>2</div>
                                             <div>
                                                 <p style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>
-                                                    Click Finalize Offer
+                                                    Submit &amp; Finalise Your Offer
                                                 </p>
                                                 <p style={{ fontSize: '13px', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-                                                    Click the Finalize Offer button below to schedule a time to chat with our team to tell us about the property condition and your seller's goals.
+                                                    Fill in your details in the Submit &amp; Finalise Offer form above. Once it's in, you can book a time to chat with our team about the property condition and your seller's goals.
                                                 </p>
                                             </div>
                                         </div>
@@ -2237,28 +2237,10 @@ Initial Estimate - Schedule a Meeting for Final Figures.`;
                                             </div>
                                         </div>
                                     </div>
-                                    <a
-                                        href={BOOKING_LINK_CLEVER}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        style={{
-                                            display: 'block',
-                                            width: '100%',
-                                            marginTop: '20px',
-                                            padding: '16px',
-                                            background: 'linear-gradient(135deg, var(--accent-green) 0%, #059669 100%)',
-                                            border: 'none',
-                                            borderRadius: '12px',
-                                            color: 'white',
-                                            fontSize: '15px',
-                                            fontWeight: 600,
-                                            textAlign: 'center',
-                                            textDecoration: 'none',
-                                            cursor: 'pointer'
-                                        }}
-                                    >
-                                        Finalize Offer
-                                    </a>
+                                    {/* No booking button here by design. Booking straight from this
+                                        section skipped lead capture, so appointments arrived with no
+                                        property and no Clever attribution. "Submit & Finalise Offer"
+                                        above is the only path; the calendar appears after capture. */}
                                 </div>
                                 )}
 
