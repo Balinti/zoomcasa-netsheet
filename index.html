@@ -372,8 +372,10 @@
         const CLEVER_LEAD_WEBHOOK = 'https://n8n.srv936332.hstgr.cloud/webhook/clever-lead';
         // Booking calendars. Clever traffic books on the dedicated "Zoom Casa / Clever
         // Quick Call." calendar so partner-sourced meetings are identifiable in GHL.
-        const BOOKING_LINK_DEFAULT = 'https://api.xtract.ai/widget/booking/dtRPSJLdtmaR3H0xNtPT';
-        const BOOKING_LINK_CLEVER  = 'https://api.xtract.ai/widget/booking/nOnbdFpBdi7qK5kvCkil';
+        // 2026-08-12: api.xtract.ai started returning 404 for every calendar after a CRM
+        // change on the GHL side. api.leadconnectorhq.com serves the same calendar ids.
+        const BOOKING_LINK_DEFAULT = 'https://api.leadconnectorhq.com/widget/booking/dtRPSJLdtmaR3H0xNtPT';
+        const BOOKING_LINK_CLEVER  = 'https://api.leadconnectorhq.com/widget/booking/nOnbdFpBdi7qK5kvCkil';
         // Clever leads must land under ONE source in GHL so they can actually be counted.
         // GHL's inbound workflow prefixes this with "Netsheet - ", giving "Netsheet - Clever"
         // (same convention as "Netsheet - Epique" / "Netsheet - Wyzegyde"). The URL may carry
@@ -2463,7 +2465,11 @@ Initial Estimate - Schedule a Meeting for Final Figures.`;
                                     🏠 Submit the Property
                                 </button>
 
-                                {/* Actions - Hidden in Print */}
+                                {/* Actions - Hidden in Print. Hidden entirely for Clever: Call,
+                                    Book an Appointment and Email all reach us without capturing
+                                    the lead, so a Clever agent gets one path only — Submit the
+                                    Property — and the booking link comes after that. */}
+                                {!isClever && (
                                 <div
                                     className="animate-in delay-5 no-print"
                                     style={{
@@ -2535,6 +2541,7 @@ Initial Estimate - Schedule a Meeting for Final Figures.`;
                                         ✉️ Email
                                     </button>
                                 </div>
+                                )}
 
                                 {/* New Calculation Button */}
                                 <button
