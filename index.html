@@ -972,6 +972,8 @@
             // clever-eval webhook) and `netsheet_clever` (appended by zc-eval when it detects
             // Clever's server-side pings). Both must get the Clever treatment.
             const isClever = source === 'clever' || source === 'netsheet_clever';
+            // Melissa's outreach email links here with &source=netsheet_melissa.
+            const isMelissa = source === 'netsheet_melissa';
 
             // White-skin partners: toggle body class based on source.
             // Default / Clever / any other source are unaffected.
@@ -2469,7 +2471,7 @@ Initial Estimate - Schedule a Meeting for Final Figures.`;
                                     Book an Appointment and Email all reach us without capturing
                                     the lead, so a Clever agent gets one path only — Submit the
                                     Property — and the booking link comes after that. */}
-                                {!isClever && (
+                                {!isClever && !isMelissa && (
                                 <div
                                     className="animate-in delay-5 no-print"
                                     style={{
@@ -2541,6 +2543,34 @@ Initial Estimate - Schedule a Meeting for Final Figures.`;
                                         ✉️ Email
                                     </button>
                                 </div>
+                                )}
+
+                                {/* Melissa: only Submit the Property (above) and Get More Details
+                                    survive — Call and Email are removed per John's request. */}
+                                {isMelissa && (
+                                <a
+                                    href={BOOKING_LINK_DEFAULT}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="animate-in delay-5 no-print"
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: '8px',
+                                        padding: '14px',
+                                        background: 'var(--accent-blue)',
+                                        border: 'none',
+                                        borderRadius: '12px',
+                                        color: 'white',
+                                        textDecoration: 'none',
+                                        fontSize: '14px',
+                                        fontWeight: 500,
+                                        transition: 'all 0.2s ease'
+                                    }}
+                                >
+                                    📅 Get More Details
+                                </a>
                                 )}
 
                                 {/* New Calculation Button */}
