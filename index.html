@@ -2464,89 +2464,13 @@ Initial Estimate - Schedule a Meeting for Final Figures.`;
                                         transition: 'all 0.2s ease'
                                     }}
                                 >
-                                    {/* Clever and Melissa get a single merged CTA — one path,
-                                        whether the agent wants to submit or just ask questions.
-                                        Everyone else keeps the original label for now. */}
-                                    {isClever || isMelissa ? '🏠 Submit Offer / Get More Details' : '🏠 Submit the Property'}
+                                    {/* One merged CTA on every net sheet. Source-gating was
+                                        abandoned because outreach links do not reliably carry a
+                                        source param, so partner pages fell back to the old
+                                        multi-button layout. */}
+                                    🏠 Submit Offer / Get More Details
                                 </button>
 
-                                {/* Actions - Hidden in Print. Hidden entirely for Clever: Call,
-                                    Book an Appointment and Email all reach us without capturing
-                                    the lead, so a Clever agent gets one path only — Submit the
-                                    Property — and the booking link comes after that. */}
-                                {!isClever && !isMelissa && (
-                                <div
-                                    className="animate-in delay-5 no-print"
-                                    style={{
-                                        display: 'grid',
-                                        gridTemplateColumns: 'repeat(3, 1fr)',
-                                        gap: '12px'
-                                    }}
-                                >
-                                    <a
-                                        href="tel:7476889904"
-                                        style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            gap: '8px',
-                                            padding: '14px',
-                                            background: 'var(--bg-elevated)',
-                                            border: '1px solid var(--border-accent)',
-                                            borderRadius: '12px',
-                                            color: 'var(--text-primary)',
-                                            textDecoration: 'none',
-                                            fontSize: '14px',
-                                            fontWeight: 500,
-                                            transition: 'all 0.2s ease'
-                                        }}
-                                    >
-                                        📞 Call
-                                    </a>
-                                    <a
-                                        href={isClever ? BOOKING_LINK_CLEVER : BOOKING_LINK_DEFAULT}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            gap: '8px',
-                                            padding: '14px',
-                                            background: 'var(--accent-blue)',
-                                            border: 'none',
-                                            borderRadius: '12px',
-                                            color: 'white',
-                                            textDecoration: 'none',
-                                            fontSize: '14px',
-                                            fontWeight: 500,
-                                            transition: 'all 0.2s ease'
-                                        }}
-                                    >
-                                        📅 Book an Appointment
-                                    </a>
-                                    <button
-                                        onClick={handleEmailSheet}
-                                        style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            gap: '8px',
-                                            padding: '14px',
-                                            background: 'var(--bg-elevated)',
-                                            border: '1px solid var(--border-accent)',
-                                            borderRadius: '12px',
-                                            color: 'var(--text-primary)',
-                                            fontSize: '14px',
-                                            fontWeight: 500,
-                                            cursor: 'pointer',
-                                            transition: 'all 0.2s ease'
-                                        }}
-                                    >
-                                        ✉️ Email
-                                    </button>
-                                </div>
-                                )}
 
                                 {/* New Calculation Button */}
                                 <button
