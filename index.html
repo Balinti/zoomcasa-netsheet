@@ -2464,7 +2464,10 @@ Initial Estimate - Schedule a Meeting for Final Figures.`;
                                         transition: 'all 0.2s ease'
                                     }}
                                 >
-                                    🏠 Submit the Property
+                                    {/* Clever and Melissa get a single merged CTA — one path,
+                                        whether the agent wants to submit or just ask questions.
+                                        Everyone else keeps the original label for now. */}
+                                    {isClever || isMelissa ? '🏠 Submit Offer / Get More Details' : '🏠 Submit the Property'}
                                 </button>
 
                                 {/* Actions - Hidden in Print. Hidden entirely for Clever: Call,
@@ -2543,34 +2546,6 @@ Initial Estimate - Schedule a Meeting for Final Figures.`;
                                         ✉️ Email
                                     </button>
                                 </div>
-                                )}
-
-                                {/* Melissa: only Submit the Property (above) and Get More Details
-                                    survive — Call and Email are removed per John's request. */}
-                                {isMelissa && (
-                                <a
-                                    href={BOOKING_LINK_DEFAULT}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="animate-in delay-5 no-print"
-                                    style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        gap: '8px',
-                                        padding: '14px',
-                                        background: 'var(--accent-blue)',
-                                        border: 'none',
-                                        borderRadius: '12px',
-                                        color: 'white',
-                                        textDecoration: 'none',
-                                        fontSize: '14px',
-                                        fontWeight: 500,
-                                        transition: 'all 0.2s ease'
-                                    }}
-                                >
-                                    📅 Get More Details
-                                </a>
                                 )}
 
                                 {/* New Calculation Button */}
