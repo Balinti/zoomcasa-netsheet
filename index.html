@@ -364,6 +364,20 @@
 
         // LeadConnector Webhook URL
         const LEADCONNECTOR_WEBHOOK = 'https://services.leadconnectorhq.com/hooks/KHb9kYgOdPilgZLkB1dL/webhook-trigger/7a2e3342-0d66-4704-8ba8-90f515d46a3e';
+        // Zoom Casa lead engine — leads.zoomcasa.com. Replaces the GHL webhook for every
+        // netsheet skin (2026-09-14). ONE KEY PER SKIN: the engine derives a lead's source from
+        // the key it arrived with, never from the payload, so each skin keeps its own count and
+        // can be revoked on its own. These keys sit in public page source exactly as the GHL
+        // webhook URL above does — same exposure as before, and each one only reaches intake.
+        const ZC_INTAKE_URL = 'https://leads.zoomcasa.com/api/intake';
+        const ZC_INTAKE_KEYS = {
+            'netsheet_calculator': 'zcns_50d0120e417faf465833a11b5b999d8b81dbe821',
+            'momshouse': 'zcns_7e942b8c9f0918670763134853ce187dbb69030f',
+            'skool': 'zcns_e9aa0355f10d3f215df75f75905ab0a6b8917347',
+            'netsheet_melissa': 'zcns_dcbe04dbefc42510e76425e5d2484e1742d11d0e',
+            'netsheet_alex': 'zcns_893b2f032d8f72b0c24ef7e7d0e31cbd3de09870'
+        };
+
         // Adds a "numbers-modified" tag + a note (with the adjusted figures) to the
         // GHL contact via n8n, so it shows on the lead without GHL workflow mapping.
         const MODIFIED_NOTE_WEBHOOK = 'https://n8n.srv936332.hstgr.cloud/webhook/zc-modified-note';
@@ -381,6 +395,58 @@
         // (same convention as "Netsheet - Epique" / "Netsheet - Wyzegyde"). The URL may carry
         // either `clever` or `netsheet_clever`; neither is used as the CRM label.
         const CLEVER_SOURCE_LABEL = 'Clever';
+
+        /**
+         * Send a captured lead to the Zoom Casa lead engine.
+         *
+         * The page's payload is written for GHL's inbound webhook, where one flat `name` /
+         * `email` / `phone` is enough. The engine models a lead as a property with an agent side
+         * and a homeowner side, so the submitter's details have to land on the right one: an
+         * agent running a client's numbers (`type: 'Realtor'`) is not the homeowner, and filing
+         * them as one would dedupe the wrong leads together later.
+         *
+         * Everything else the page sends is passed through untouched — the engine keeps
+         * unrecognised keys with their provenance, so the net proceeds, the SMS consent and the
+         * modified figures stay on the lead.
+         *
+         * CLEVER IS NOT REPOINTED YET: a Clever lead still goes to GHL through the existing
+         * webhook, signed or unsigned, until Clever gets its own lane and key.
+         */
+        const postLeadToZc = (payload) => {
+            const src = payload.source || 'netsheet_calculator';
+            const key = ZC_INTAKE_KEYS[src];
+            if (!key) {
+                // An unknown skin (or Clever) keeps the old path rather than silently vanishing.
+                return fetch(LEADCONNECTOR_WEBHOOK, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+            }
+            const submitterIsAgent = /realtor|agent|broker|lender/i.test(String(payload.type || ''));
+            const side = submitterIsAgent ? 'agent' : 'homeowner';
+            const body = Object.assign({}, payload, {
+                lead_role: side,
+                property_address: payload.address,
+                as_is_value: payload.asIsValue,
+                after_repair_value: payload.afterRepairValue
+            });
+            body[side + '_name'] = payload.name;
+            body[side + '_email'] = payload.email;
+            body[side + '_phone'] = payload.phone;
+            // text/plain, deliberately: a JSON content-type makes the browser send a CORS
+            // preflight, and the sign-in proxy in front of leads.zoomcasa.com answers OPTIONS
+            // with its login page, so the lead never leaves the page (verified 2026-09-14).
+            // A text/plain body is a "simple request" — no preflight — and intake reads the raw
+            // body and parses it itself, so the payload is unchanged. The response is opaque to
+            // us without CORS headers; delivery is confirmed on the CRM side, not here.
+            return fetch(ZC_INTAKE_URL + '?key=' + encodeURIComponent(key), {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+                body: JSON.stringify(body)
+            });
+        };
 
         // Normalize an address before sending it to the zc-eval valuation webhook.
         // Google Places appends ", USA" (and sometimes ", United States"), which
@@ -1104,24 +1170,20 @@
                     const unusedCarryCredit = monthsToSell > 0 ? Math.round(programFeeCarry * (unusedMonths / monthsToSell)) : 0;
                     const totalNet = (advance - renovationBudget - Math.round(asIs * listingAgentPct / 100) - Math.round(asIs * buyersAgentPct / 100) - Math.round(asIs * resaleClosingCostsPct / 100) - programFeeBase - programFeeCarry - mortgageBalance - Math.round(asIs * closingCostsPct / 100)) + (arv - advance + unusedCarryCredit);
 
-                    await fetch(LEADCONNECTOR_WEBHOOK, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            name: prospectData.name,
-                            email: prospectData.email,
-                            phone: prospectData.phone,
-                            type: prospectData.type,
-                            address: prospectData.address,
-                            asIsValue: resultData.asIsValue,
-                            afterRepairValue: resultData.afterRepairValue,
-                            totalNetProceeds: totalNet,
-                            smsConsent: smsConsent,
-                            timestamp: new Date().toISOString(),
-                            source: isClever ? CLEVER_SOURCE_LABEL : (source || 'netsheet_calculator'),
-                            referral: isClever ? CLEVER_SOURCE_LABEL : (source || '')
-                        })
-                    });
+                    await postLeadToZc({
+                        name: prospectData.name,
+                        email: prospectData.email,
+                        phone: prospectData.phone,
+                        type: prospectData.type,
+                        address: prospectData.address,
+                        asIsValue: resultData.asIsValue,
+                        afterRepairValue: resultData.afterRepairValue,
+                        totalNetProceeds: totalNet,
+                        smsConsent: smsConsent,
+                        timestamp: new Date().toISOString(),
+                        source: isClever ? CLEVER_SOURCE_LABEL : (source || 'netsheet_calculator'),
+                        referral: isClever ? CLEVER_SOURCE_LABEL : (source || '')
+                        });
                 } catch (err) {
                     console.log('Webhook notification sent');
                 }
@@ -1219,28 +1281,24 @@
 
                 setSpSubmitting(true);
                 try {
-                    await fetch(LEADCONNECTOR_WEBHOOK, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            name: spName.trim(),
-                            email: spEmail.trim(),
-                            phone: spPhone.trim(),
-                            address: decodeURIComponent(result?.address || prospect?.address || ''),
-                            type: prospect?.type || role || '',
-                            asIsValue: result?.asIsValue,
-                            afterRepairValue: result?.afterRepairValue,
-                            modified: adjustedValue != null,
-                            modifiedAsIsValue: adjustedValue != null ? adjustedValue : null,
-                            modifiedTotalNetProceeds: (adjustedValue != null && computed) ? computed.totalNetProceeds : null,
-                            tags: adjustedValue != null ? ['numbers-modified'] : [],
-                            formType: 'property_submission',
-                            smsConsent: smsConsent,
-                            timestamp: new Date().toISOString(),
-                            source: isClever ? CLEVER_SOURCE_LABEL : (source || 'netsheet_calculator'),
-                            referral: isClever ? CLEVER_SOURCE_LABEL : (source || '')
-                        })
-                    });
+                    await postLeadToZc({
+                        name: spName.trim(),
+                        email: spEmail.trim(),
+                        phone: spPhone.trim(),
+                        address: decodeURIComponent(result?.address || prospect?.address || ''),
+                        type: prospect?.type || role || '',
+                        asIsValue: result?.asIsValue,
+                        afterRepairValue: result?.afterRepairValue,
+                        modified: adjustedValue != null,
+                        modifiedAsIsValue: adjustedValue != null ? adjustedValue : null,
+                        modifiedTotalNetProceeds: (adjustedValue != null && computed) ? computed.totalNetProceeds : null,
+                        tags: adjustedValue != null ? ['numbers-modified'] : [],
+                        formType: 'property_submission',
+                        smsConsent: smsConsent,
+                        timestamp: new Date().toISOString(),
+                        source: isClever ? CLEVER_SOURCE_LABEL : (source || 'netsheet_calculator'),
+                        referral: isClever ? CLEVER_SOURCE_LABEL : (source || '')
+                        });
                     if (adjustedValue != null && computed) {
                         fetch(MODIFIED_NOTE_WEBHOOK, {
                             method: 'POST',
@@ -1330,26 +1388,22 @@
             useEffect(() => {
                 if (!prospect || adjustedValue == null || !computed) return;
                 const t = setTimeout(() => {
-                    fetch(LEADCONNECTOR_WEBHOOK, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            name: prospect.name,
-                            email: prospect.email,
-                            phone: prospect.phone,
-                            address: prospect.address,
-                            type: prospect.type,
-                            asIsValue: result?.asIsValue,
-                            modified: true,
-                            modifiedAsIsValue: adjustedValue,
-                            modifiedTotalNetProceeds: computed.totalNetProceeds,
-                            tags: ['numbers-modified'],
-                            formType: 'netsheet_modified',
-                            smsConsent: smsConsent,
-                            timestamp: new Date().toISOString(),
-                            source: isClever ? CLEVER_SOURCE_LABEL : (source || 'netsheet_calculator'),
-                            referral: isClever ? CLEVER_SOURCE_LABEL : (source || '')
-                        })
+                    postLeadToZc({
+                        name: prospect.name,
+                        email: prospect.email,
+                        phone: prospect.phone,
+                        address: prospect.address,
+                        type: prospect.type,
+                        asIsValue: result?.asIsValue,
+                        modified: true,
+                        modifiedAsIsValue: adjustedValue,
+                        modifiedTotalNetProceeds: computed.totalNetProceeds,
+                        tags: ['numbers-modified'],
+                        formType: 'netsheet_modified',
+                        smsConsent: smsConsent,
+                        timestamp: new Date().toISOString(),
+                        source: isClever ? CLEVER_SOURCE_LABEL : (source || 'netsheet_calculator'),
+                        referral: isClever ? CLEVER_SOURCE_LABEL : (source || '')
                     }).catch(() => {});
                     fetch(MODIFIED_NOTE_WEBHOOK, {
                         method: 'POST',
