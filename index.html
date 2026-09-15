@@ -375,7 +375,13 @@
             'momshouse': 'zcns_7e942b8c9f0918670763134853ce187dbb69030f',
             'skool': 'zcns_e9aa0355f10d3f215df75f75905ab0a6b8917347',
             'netsheet_melissa': 'zcns_dcbe04dbefc42510e76425e5d2484e1742d11d0e',
-            'netsheet_alex': 'zcns_893b2f032d8f72b0c24ef7e7d0e31cbd3de09870'
+            'netsheet_alex': 'zcns_893b2f032d8f72b0c24ef7e7d0e31cbd3de09870',
+            // 2026-09-15: Epique had no entry, so every Epique net sheet took the fallback
+            // below and went to GHL alone (3 in 24 hours, more than Clever). Both spellings
+            // are registered because nothing on the GHL side records the raw `?source=`
+            // value -- GHL only ever shows it prefixed, as "Netsheet - Epique".
+            'epique': 'zcns_b21cacaae27c2efa25536d5f03cc49eaa950f671',
+            'netsheet_epique': 'zcns_b21cacaae27c2efa25536d5f03cc49eaa950f671'
         };
 
         // Adds a "numbers-modified" tag + a note (with the adjusted figures) to the
@@ -414,7 +420,10 @@
          */
         const postLeadToZc = (payload) => {
             const src = payload.source || 'netsheet_calculator';
-            const key = ZC_INTAKE_KEYS[src];
+            // Exact match first, then case-insensitively: a partner's link decides the casing of
+            // `?source=`, and a skin that is registered must not fall through to GHL because it
+            // arrived as "Epique" rather than "epique".
+            const key = ZC_INTAKE_KEYS[src] || ZC_INTAKE_KEYS[String(src).trim().toLowerCase()];
             if (!key) {
                 // An unknown skin (or Clever) keeps the old path rather than silently vanishing.
                 return fetch(LEADCONNECTOR_WEBHOOK, {
