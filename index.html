@@ -385,14 +385,20 @@
             // The third white skin (see the ?source= list above). No lead has ever arrived
             // under it -- 33 days of GHL history, none -- so this is insurance: the day EZ
             // Home Search does send someone, it comes here instead of falling through.
-            'ezhomesearch': 'zcns_60c5529a13672d2ad5f4868da374388a2e2e6ef9'
+            'ezhomesearch': 'zcns_60c5529a13672d2ad5f4868da374388a2e2e6ef9',
+            // 2026-09-29: Clever had a CRM lane (vendor netsheet-clever) but no key here,
+            // so every Clever submit fell through to GoHighLevel. Both spellings: the
+            // page sends "Clever", and zc-eval can append netsheet_clever.
+            'clever': 'zcns_6f43dd7a5c71d5c602193ccd326b88d50ab9b319',
+            'netsheet_clever': 'zcns_6f43dd7a5c71d5c602193ccd326b88d50ab9b319'
         };
 
         // Adds a "numbers-modified" tag + a note (with the adjusted figures) to the
         // GHL contact via n8n, so it shows on the lead without GHL workflow mapping.
         const MODIFIED_NOTE_WEBHOOK = 'https://n8n.srv936332.hstgr.cloud/webhook/zc-modified-note';
-        // Clever signature-validated lead capture. Used only when the link carries a `sig`;
-        // unsigned Clever links capture through LEADCONNECTOR_WEBHOOK instead.
+        // Clever signature check. A link with `sig` is verified here first; the CRM
+        // write happens only after clever-lead returns ok. Unsigned Clever links go
+        // straight to the CRM through postLeadToZc.
         const CLEVER_LEAD_WEBHOOK = 'https://n8n.srv936332.hstgr.cloud/webhook/clever-lead';
         // Booking calendars. Clever traffic books on the dedicated "Zoom Casa / Clever
         // Quick Call." calendar so partner-sourced meetings are identifiable in GHL.
@@ -419,8 +425,8 @@
          * unrecognised keys with their provenance, so the net proceeds, the SMS consent and the
          * modified figures stay on the lead.
          *
-         * CLEVER IS NOT REPOINTED YET: a Clever lead still goes to GHL through the existing
-         * webhook, signed or unsigned, until Clever gets its own lane and key.
+         * Clever is registered above (`clever` / `netsheet_clever`), so a Clever payload
+         * is stored as a Clever lead instead of falling through to GoHighLevel.
          */
         const postLeadToZc = (payload) => {
             const src = payload.source || 'netsheet_calculator';
@@ -429,7 +435,7 @@
             // arrived as "Epique" rather than "epique".
             const key = ZC_INTAKE_KEYS[src] || ZC_INTAKE_KEYS[String(src).trim().toLowerCase()];
             if (!key) {
-                // An unknown skin (or Clever) keeps the old path rather than silently vanishing.
+                // An unknown skin keeps the old path rather than silently vanishing.
                 return fetch(LEADCONNECTOR_WEBHOOK, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -1203,8 +1209,22 @@
             };
 
             // Open the "Submit the Property" modal, pre-filling any known contact info
-            // Clever "Submit & Finalise Offer" — posts the captured contact + the signed
-            // sig/exp to clever-lead, which verifies the signature before creating the lead.
+            // Clever "Submit & Finalise Offer". Signed links are checked by clever-lead
+            // first; the CRM write uses the netsheet-clever key either way.
+            const cleverCrmPayload = () => ({
+                name: cfName.trim(),
+                email: cfEmail.trim(),
+                phone: cfPhone.trim(),
+                type: 'Realtor',
+                address: decodeURIComponent(result?.address || ''),
+                asIsValue: result?.asIsValue,
+                afterRepairValue: result?.afterRepairValue,
+                smsConsent: false,
+                timestamp: new Date().toISOString(),
+                source: CLEVER_SOURCE_LABEL,
+                referral: CLEVER_SOURCE_LABEL,
+                tags: ['clever']
+            });
             const handleCleverFinalise = async () => {
                 const errs = {};
                 if (!cfName.trim()) errs.name = 'Name is required';
@@ -1232,32 +1252,15 @@
                         });
                         const data = await res.json().catch(() => ({}));
                         if (data && data.ok) {
+                            // HMAC already checked. Write the CRM lead only after that.
+                            await postLeadToZc(cleverCrmPayload());
                             setCfSubmitted(true);
                         } else {
                             setCfErrors({ form: 'We could not verify this link. Please contact us to finalise.' });
                         }
                     } else {
-                        // Unsigned Clever link (partner link template): no signature to verify,
-                        // so capture through the standard lead webhook, attributed to Clever.
-                        // GHL prefixes source with "Netsheet - ", so send the bare partner name
-                        // to land on "Netsheet - Clever" — matching Epique/Wyzegyde.
-                        await fetch(LEADCONNECTOR_WEBHOOK, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                name: cfName.trim(),
-                                email: cfEmail.trim(),
-                                phone: cfPhone.trim(),
-                                type: 'Realtor',
-                                address: decodeURIComponent(result?.address || ''),
-                                asIsValue: result?.asIsValue,
-                                afterRepairValue: result?.afterRepairValue,
-                                smsConsent: false,
-                                timestamp: new Date().toISOString(),
-                                source: CLEVER_SOURCE_LABEL,
-                                referral: CLEVER_SOURCE_LABEL
-                            })
-                        });
+                        // Unsigned partner link: no signature. Same CRM lane as a signed one.
+                        await postLeadToZc(cleverCrmPayload());
                         setCfSubmitted(true);
                     }
                 } catch (err) {
