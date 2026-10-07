@@ -452,7 +452,10 @@
         // 2026-08-12: api.xtract.ai started returning 404 for every calendar after a CRM
         // change on the GHL side. api.leadconnectorhq.com serves the same calendar ids.
         const BOOKING_LINK_DEFAULT = 'https://api.leadconnectorhq.com/widget/booking/dtRPSJLdtmaR3H0xNtPT';
-        const BOOKING_LINK_CLEVER  = 'https://api.leadconnectorhq.com/widget/booking/nOnbdFpBdi7qK5kvCkil';
+        // 2026-10-07 (Edoe): Clever books on our own calendar from here on, not GHL's.
+        // The CRM round-robins the call to a consultant and creates the Zoom meeting and
+        // the invite. GHL's old Clever calendar was .../widget/booking/nOnbdFpBdi7qK5kvCkil.
+        const BOOKING_LINK_CLEVER  = 'https://crm.zoomcasa.com/book/clever-quick-call';
         // Clever leads must land under ONE source in GHL so they can actually be counted.
         // GHL's inbound workflow prefixes this with "Netsheet - ", giving "Netsheet - Clever"
         // (same convention as "Netsheet - Epique" / "Netsheet - Wyzegyde"). The URL may carry
