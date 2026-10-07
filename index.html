@@ -409,8 +409,6 @@
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
-        // LeadConnector Webhook URL
-        const LEADCONNECTOR_WEBHOOK = 'https://services.leadconnectorhq.com/hooks/KHb9kYgOdPilgZLkB1dL/webhook-trigger/7a2e3342-0d66-4704-8ba8-90f515d46a3e';
         // Zoom Casa lead engine — leads.zoomcasa.com. Replaces the GHL webhook for every
         // netsheet skin (2026-09-14). ONE KEY PER SKIN: the engine derives a lead's source from
         // the key it arrived with, never from the payload, so each skin keeps its own count and
@@ -440,23 +438,11 @@
             'netsheet_clever': 'zcns_6f43dd7a5c71d5c602193ccd326b88d50ab9b319'
         };
 
-        // Adds a "numbers-modified" tag + a note (with the adjusted figures) to the
-        // GHL contact via n8n, so it shows on the lead without GHL workflow mapping.
-        const MODIFIED_NOTE_WEBHOOK = 'https://n8n.srv936332.hstgr.cloud/webhook/zc-modified-note';
-        // Clever signature check. A link with `sig` is verified here first; the CRM
-        // write happens only after clever-lead returns ok. Unsigned Clever links go
-        // straight to the CRM through postLeadToZc.
-        const CLEVER_LEAD_WEBHOOK = 'https://n8n.srv936332.hstgr.cloud/webhook/clever-lead';
         // Every time a Clever net sheet is opened, n8n writes one row to BigQuery
         // (zoomcasa-42970.emails.clever_netsheet_opens). This is the only record of an agent
         // opening the link: the valuation log knows the link was made, the CRM knows it was
         // submitted, and nothing else sits in between.
         const CLEVER_OPEN_WEBHOOK = 'https://n8n.srv936332.hstgr.cloud/webhook/clever-netsheet-open';
-        // Booking calendars. Clever traffic books on the dedicated "Zoom Casa / Clever
-        // Quick Call." calendar so partner-sourced meetings are identifiable in GHL.
-        // 2026-08-12: api.xtract.ai started returning 404 for every calendar after a CRM
-        // change on the GHL side. api.leadconnectorhq.com serves the same calendar ids.
-        const BOOKING_LINK_DEFAULT = 'https://api.leadconnectorhq.com/widget/booking/dtRPSJLdtmaR3H0xNtPT';
         // 2026-10-07 (Edoe): Clever books on our own calendar from here on, not GHL's.
         // The CRM round-robins the call to a consultant and creates the Zoom meeting and
         // the invite. GHL's old Clever calendar was .../widget/booking/nOnbdFpBdi7qK5kvCkil.
@@ -488,15 +474,13 @@
             // Exact match first, then case-insensitively: a partner's link decides the casing of
             // `?source=`, and a skin that is registered must not fall through to GHL because it
             // arrived as "Epique" rather than "epique".
-            const key = ZC_INTAKE_KEYS[src] || ZC_INTAKE_KEYS[String(src).trim().toLowerCase()];
-            if (!key) {
-                // An unknown skin keeps the old path rather than silently vanishing.
-                return fetch(LEADCONNECTOR_WEBHOOK, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-            }
+            // 2026-10-07 (Edoe): GoHighLevel is being retired, so nothing on this page posts to it
+            // any more. A `?source=` this page has no key for used to fall back to GHL's webhook;
+            // it now goes to the CRM's general net sheet lane. The lead still carries the source
+            // it arrived with in its payload, so an unregistered partner shows up in the CRM's
+            // stored submission and can be given its own key afterwards.
+            const key = ZC_INTAKE_KEYS[src] || ZC_INTAKE_KEYS[String(src).trim().toLowerCase()]
+                || ZC_INTAKE_KEYS['netsheet_calculator'];
             const submitterIsAgent = /realtor|agent|broker|lender/i.test(String(payload.type || ''));
             const side = submitterIsAgent ? 'agent' : 'homeowner';
             const body = Object.assign({}, payload, {
@@ -1115,7 +1099,7 @@
             const [afterRepairValue, setAfterRepairValue] = useState(0);
             // User-adjustable working value for the As-Is evaluation. null = use our
             // original AVM. Edits only affect the on-screen calculations + emailed sheet;
-            // the GHL webhook always sends the original result.asIsValue.
+            // the lead always carries the original result.asIsValue, with the edit alongside it.
             const [adjustedValue, setAdjustedValue] = useState(null);
 
             // Clever finalise-offer capture (signature-validated). sig/exp come from the
@@ -1287,7 +1271,7 @@
                 }
             };
 
-            // Send data to LeadConnector webhook
+            // Send the contact-form lead to the CRM
             const triggerWebhook = async (prospectData, resultData) => {
                 try {
                     // Compute total inline since state may not have updated yet
@@ -1376,35 +1360,11 @@
                 cleverSendLock.current = true;
                 setCfSubmitting(true);
                 try {
-                    if (cleverSig) {
-                        // Signed link: clever-lead re-computes the HMAC and rejects tampering.
-                        const res = await fetch(CLEVER_LEAD_WEBHOOK, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                name: cfName.trim(),
-                                email: cfEmail.trim(),
-                                phone: cfPhone.trim(),
-                                address: decodeURIComponent(result?.address || ''),
-                                value: result?.asIsValue,
-                                exp: cleverExp,
-                                sig: cleverSig
-                            })
-                        });
-                        const data = await res.json().catch(() => ({}));
-                        if (data && data.ok) {
-                            // HMAC already checked. Write the CRM lead only after that.
-                            await postLeadToZc(cleverCrmPayload());
-                            markCleverSubmitted();
-                        } else {
-                            cleverSendLock.current = false;
-                            setCfErrors({ form: 'We could not verify this link. Please contact us to finalise.' });
-                        }
-                    } else {
-                        // Unsigned partner link: no signature. Same CRM lane as a signed one.
-                        await postLeadToZc(cleverCrmPayload());
-                        markCleverSubmitted();
-                    }
+                    // Every Clever submit goes straight to the CRM lane. Signed links used to be
+                    // checked by n8n clever-lead first, which also wrote the contact to GHL; that
+                    // workflow was switched off on 2026-10-07 and no signed links are in use.
+                    await postLeadToZc(cleverCrmPayload());
+                    markCleverSubmitted();
                 } catch (err) {
                     cleverSendLock.current = false;
                     setCfErrors({ form: 'Something went wrong. Please try again.' });
@@ -1439,7 +1399,7 @@
                 setSubmitPropertyOpen(true);
             };
 
-            // Submit the property + contact details to the LeadConnector webhook
+            // Submit the property + contact details to the CRM
             const handleSubmitProperty = async () => {
                 const newErrors = {};
                 if (!spName.trim()) {
@@ -1476,20 +1436,8 @@
                         source: isClever ? CLEVER_SOURCE_LABEL : (source || 'netsheet_calculator'),
                         referral: isClever ? CLEVER_SOURCE_LABEL : (source || '')
                         });
-                    if (adjustedValue != null && computed) {
-                        fetch(MODIFIED_NOTE_WEBHOOK, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                email: spEmail.trim(),
-                                asIsValue: result?.asIsValue,
-                                modifiedAsIsValue: adjustedValue,
-                                modifiedTotalNetProceeds: computed.totalNetProceeds
-                            })
-                        }).catch(() => {});
-                    }
                 } catch (err) {
-                    // LeadConnector returns an opaque response; treat as delivered.
+                    // The CRM's response is unreadable from here (no-cors); treat as delivered.
                     console.log('Property submission sent');
                 }
                 setSpSubmitting(false);
@@ -1609,7 +1557,7 @@
             }, [isClever, result?.address]);
 
             // When the seller adjusts the As-Is value, push the modified numbers
-            // to GHL (debounced) so the existing contact reflects the change.
+            // to the CRM (debounced) so the existing lead reflects the change.
             useEffect(() => {
                 if (!prospect || adjustedValue == null || !computed) return;
                 const t = setTimeout(() => {
@@ -1629,16 +1577,6 @@
                         timestamp: new Date().toISOString(),
                         source: isClever ? CLEVER_SOURCE_LABEL : (source || 'netsheet_calculator'),
                         referral: isClever ? CLEVER_SOURCE_LABEL : (source || '')
-                    }).catch(() => {});
-                    fetch(MODIFIED_NOTE_WEBHOOK, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            email: prospect.email,
-                            asIsValue: result?.asIsValue,
-                            modifiedAsIsValue: adjustedValue,
-                            modifiedTotalNetProceeds: computed.totalNetProceeds
-                        })
                     }).catch(() => {});
                 }, 1500);
                 return () => clearTimeout(t);
