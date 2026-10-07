@@ -1313,7 +1313,11 @@
                 type: 'Realtor',
                 address: decodeURIComponent(result?.address || ''),
                 asIsValue: result?.asIsValue,
-                afterRepairValue: result?.afterRepairValue,
+                // The boxes on the sheet, not the valuation object. result.afterRepairValue
+                // stays at whatever clever-eval returned and never follows an edit.
+                afterRepairValue: Number(afterRepairValue) > 0 ? afterRepairValue : result?.afterRepairValue,
+                mortgageBalance: mortgageBalance,
+                renovationBudget: renovationBudget,
                 smsConsent: false,
                 timestamp: new Date().toISOString(),
                 source: CLEVER_SOURCE_LABEL,
