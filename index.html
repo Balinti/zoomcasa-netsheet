@@ -865,6 +865,53 @@
         };
 
         // Line item row
+        // Months as a typed number. Whole months only, 1 to 8: the same range the dropdown
+        // offered, because the carry fee is 0.75% for each month entered. The box keeps what is
+        // being typed (including empty) and only passes a valid number up, so the sheet never
+        // sees a blank or an out-of-range month mid-edit. Leaving the box restores the last
+        // valid number.
+        const MONTHS_MIN = 1, MONTHS_MAX = 8;
+        const MonthsInput = ({ value, onChange, label }) => {
+            const [text, setText] = useState(String(value));
+            useEffect(() => { setText(String(value)); }, [value]);
+            const n = parseInt(text, 10);
+            const bad = text !== '' && !(n >= MONTHS_MIN && n <= MONTHS_MAX);
+            return (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                    <input
+                        type="text"
+                        inputMode="numeric"
+                        aria-label={label}
+                        value={text}
+                        onChange={(e) => {
+                            const t = e.target.value.replace(/[^0-9]/g, '').slice(0, 2);
+                            setText(t);
+                            const v = parseInt(t, 10);
+                            if (v >= MONTHS_MIN && v <= MONTHS_MAX) onChange(v);
+                        }}
+                        onBlur={() => setText(String(value))}
+                        onFocus={(e) => e.target.select()}
+                        style={{
+                            width: '56px',
+                            padding: '8px 10px',
+                            fontSize: '14px',
+                            fontWeight: 600,
+                            fontFamily: 'inherit',
+                            textAlign: 'center',
+                            background: 'var(--bg-elevated)',
+                            border: '1px solid ' + (bad ? '#ef4444' : 'var(--border-accent)'),
+                            borderRadius: '8px',
+                            color: 'var(--text-primary)',
+                            outline: 'none'
+                        }}
+                    />
+                    <span style={{ fontSize: '13px', color: bad ? '#ef4444' : 'var(--text-muted)' }}>
+                        {bad ? `${MONTHS_MIN}–${MONTHS_MAX} only` : (value === 1 ? 'month' : 'months')}
+                    </span>
+                </span>
+            );
+        };
+
         const LineItem = ({ label, value, percentage, isNegative, highlight, large, editablePct, onPctChange, noBorder }) => (
             <div style={{
                 display: 'flex',
@@ -1312,6 +1359,18 @@
                 if (!cfEmail.trim()) errs.email = 'Email is required';
                 else if (!EMAIL_REGEX.test(cfEmail.trim())) errs.email = 'Enter a valid email';
                 if (!cfPhone.trim()) errs.phone = 'Phone is required';
+                // The property and its value are part of the submission, not optional extras:
+                // a lead with no address cannot be matched to the Clever referral, and one with
+                // no value is not an offer request. The address is fixed by the link, so a
+                // missing one means the link is incomplete; the value can be typed below.
+                let submitAddress = String(result?.address || '');
+                try { submitAddress = decodeURIComponent(submitAddress); } catch (e) {}
+                const submitValue = adjustedValue != null ? adjustedValue : result?.asIsValue;
+                if (submitAddress.trim().length < 5) {
+                    errs.form = 'This link is missing the property address. Please open the link from your Clever email again, or contact us.';
+                } else if (!(Number(submitValue) > 0)) {
+                    errs.form = 'Please enter the As-Is Value for the property (below) before submitting.';
+                }
                 setCfErrors(errs);
                 if (Object.keys(errs).length) return;
                 cleverSendLock.current = true;
@@ -2429,31 +2488,7 @@ Initial Estimate - Schedule a Meeting for Final Figures.`;
                                     }}>
                                         Est. Months to Sell
                                     </span>
-                                    <select
-                                        value={monthsToSell}
-                                        onChange={(e) => setMonthsToSell(parseInt(e.target.value))}
-                                        style={{
-                                            padding: '8px 32px 8px 12px',
-                                            fontSize: '14px',
-                                            fontWeight: 600,
-                                            fontFamily: 'inherit',
-                                            background: 'var(--bg-elevated)',
-                                            border: '1px solid var(--border-accent)',
-                                            borderRadius: '8px',
-                                            color: 'var(--text-primary)',
-                                            outline: 'none',
-                                            cursor: 'pointer',
-                                            appearance: 'none',
-                                            WebkitAppearance: 'none',
-                                            backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23999' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
-                                            backgroundRepeat: 'no-repeat',
-                                            backgroundPosition: 'right 10px center'
-                                        }}
-                                    >
-                                        {[1,2,3,4,5,6,7,8].map(m => (
-                                            <option key={m} value={m}>{m} month{m > 1 ? 's' : ''}</option>
-                                        ))}
-                                    </select>
+                                    <MonthsInput value={monthsToSell} onChange={setMonthsToSell} label="Est. Months to Sell" />
                                 </div>
 
                                 {/* Initial Transaction */}
@@ -2710,31 +2745,7 @@ Initial Estimate - Schedule a Meeting for Final Figures.`;
                                         }}>
                                             Actual Months to Sell
                                         </span>
-                                        <select
-                                            value={actualMonthsToSell}
-                                            onChange={(e) => setActualMonthsToSell(parseInt(e.target.value))}
-                                            style={{
-                                                padding: '8px 32px 8px 12px',
-                                                fontSize: '14px',
-                                                fontWeight: 600,
-                                                fontFamily: 'inherit',
-                                                background: 'var(--bg-elevated)',
-                                                border: '1px solid var(--border-accent)',
-                                                borderRadius: '8px',
-                                                color: 'var(--text-primary)',
-                                                outline: 'none',
-                                                cursor: 'pointer',
-                                                appearance: 'none',
-                                                WebkitAppearance: 'none',
-                                                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23999' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
-                                                backgroundRepeat: 'no-repeat',
-                                                backgroundPosition: 'right 10px center'
-                                            }}
-                                        >
-                                            {[1,2,3,4,5,6,7,8].map(m => (
-                                                <option key={m} value={m}>{m} month{m > 1 ? 's' : ''}</option>
-                                            ))}
-                                        </select>
+                                        <MonthsInput value={actualMonthsToSell} onChange={setActualMonthsToSell} label="Actual Months to Sell" />
                                     </div>
                                 </SectionCard>
                                 )}
