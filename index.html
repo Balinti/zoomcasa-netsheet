@@ -447,6 +447,11 @@
         // write happens only after clever-lead returns ok. Unsigned Clever links go
         // straight to the CRM through postLeadToZc.
         const CLEVER_LEAD_WEBHOOK = 'https://n8n.srv936332.hstgr.cloud/webhook/clever-lead';
+        // Every time a Clever net sheet is opened, n8n writes one row to BigQuery
+        // (zoomcasa-42970.emails.clever_netsheet_opens). This is the only record of an agent
+        // opening the link: the valuation log knows the link was made, the CRM knows it was
+        // submitted, and nothing else sits in between.
+        const CLEVER_OPEN_WEBHOOK = 'https://n8n.srv936332.hstgr.cloud/webhook/clever-netsheet-open';
         // Booking calendars. Clever traffic books on the dedicated "Zoom Casa / Clever
         // Quick Call." calendar so partner-sourced meetings are identifiable in GHL.
         // 2026-08-12: api.xtract.ai started returning 404 for every calendar after a CRM
@@ -1495,6 +1500,43 @@
             };
 
             const computed = computeSheet();
+
+            // Report the open, once per page load. Never allowed to break the page: storage
+            // may be blocked and the request may fail, and the net sheet must work regardless.
+            const cleverOpenSent = useRef(false);
+            useEffect(() => {
+                if (!isClever || !result?.address || cleverOpenSent.current) return;
+                cleverOpenSent.current = true;
+                try {
+                    const rand = () => Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10);
+                    let visitorId = '';
+                    let alreadySubmitted = false;
+                    try {
+                        visitorId = localStorage.getItem('zc_visitor_id') || '';
+                        if (!visitorId) { visitorId = 'v_' + rand(); localStorage.setItem('zc_visitor_id', visitorId); }
+                        alreadySubmitted = !!localStorage.getItem(cleverSubmitKey(result.address));
+                    } catch (e) {}
+                    let addr = String(result.address);
+                    try { addr = decodeURIComponent(addr); } catch (e) {}
+                    fetch(CLEVER_OPEN_WEBHOOK, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        keepalive: true,
+                        body: JSON.stringify({
+                            event_id: 'open_' + rand(),
+                            source: source,
+                            address: addr,
+                            value: result.asIsValue,
+                            visitor_id: visitorId,
+                            already_submitted: alreadySubmitted,
+                            is_signed_link: !!cleverSig,
+                            page_url: window.location.href,
+                            referrer: document.referrer || '',
+                            device: window.innerWidth < 768 ? 'mobile' : 'desktop'
+                        })
+                    }).catch(() => {});
+                } catch (e) {}
+            }, [isClever, result?.address]);
 
             useEffect(() => {
                 if (!isClever || !result?.address) return;
