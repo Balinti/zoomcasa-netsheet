@@ -197,6 +197,53 @@
         }
 
         /* Print Styles - Capture full proposal on one page */
+        /* ---- Clever net sheet, after it has been submitted ------------------------------
+           On screen the calculations go away and the card with the two buttons is all that
+           is left. The numbers still exist in the page: "Download PDF" prints .clever-pdf,
+           a document laid out for paper, instead of the on-screen calculator. */
+        .clever-pdf { display: none; }
+        @media screen {
+            .clever-done > *:not(.clever-submit-card) { display: none !important; }
+        }
+        @media print {
+            body.clever-pdf-mode, body.clever-pdf-mode #root { background: #fff !important; min-height: 0 !important; }
+            body.clever-pdf-mode::before, body.clever-pdf-mode::after { display: none !important; }
+            body.clever-pdf-mode .zc-root { min-height: 0 !important; }
+            body.clever-pdf-mode .zc-root > *:not(.zc-shell),
+            body.clever-pdf-mode .zc-screen-header,
+            body.clever-pdf-mode .print-container > *:not(.clever-pdf) { display: none !important; }
+            body.clever-pdf-mode .zc-shell { max-width: none !important; padding: 0 !important; }
+            body.clever-pdf-mode .print-container { break-inside: auto !important; page-break-inside: auto !important; }
+            body.clever-pdf-mode .clever-pdf { display: block !important; }
+            .clever-pdf, .clever-pdf * { color: #1a1a1a !important; font-family: 'Instrument Sans', Arial, sans-serif; box-sizing: border-box; }
+            .clever-pdf { font-size: 10.5pt; line-height: 1.35; }
+            .clever-pdf .cp-head { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #1a1a1a; padding-bottom: 8pt; margin-bottom: 10pt; }
+            .clever-pdf .cp-head img.cp-zc { height: 24pt; width: auto; }
+            .clever-pdf .cp-partner { display: flex; align-items: center; gap: 6pt; font-size: 7.5pt; letter-spacing: 1pt; text-transform: uppercase; }
+            .clever-pdf .cp-partner img { height: 14pt; width: auto; }
+            .clever-pdf h1 { font-family: 'Playfair Display', Georgia, serif; font-size: 18pt !important; font-weight: 600; margin: 0 0 2pt; }
+            .clever-pdf .cp-sub { font-size: 9pt; margin: 0 0 9pt; }
+            .clever-pdf .cp-meta { display: flex; gap: 18pt; margin-bottom: 4pt; }
+            .clever-pdf .cp-meta > div:first-child { flex: 2; }
+            .clever-pdf .cp-meta > div { flex: 1; }
+            .clever-pdf .cp-label { font-size: 7.5pt; letter-spacing: 1pt; text-transform: uppercase; margin: 0 0 2pt; }
+            .clever-pdf .cp-value { font-size: 11.5pt; font-weight: 600; margin: 0; }
+            .clever-pdf h2 { font-family: 'Instrument Sans', Arial, sans-serif; font-size: 9pt; letter-spacing: 1.2pt; text-transform: uppercase; margin: 10pt 0 2pt; padding-bottom: 3pt; border-bottom: 1px solid #1a1a1a; }
+            .clever-pdf table { width: 100%; border-collapse: collapse; }
+            .clever-pdf tr { break-inside: avoid; page-break-inside: avoid; }
+            .clever-pdf td { padding: 2.6pt 0; border-bottom: 1px solid #e3e3e3; vertical-align: top; }
+            .clever-pdf td.cp-pct { width: 54pt; text-align: right; font-size: 9pt; }
+            .clever-pdf td.cp-amt { width: 96pt; text-align: right; font-variant-numeric: tabular-nums; }
+            .clever-pdf tr.cp-sum td { border-bottom: none; border-top: 1px solid #1a1a1a; font-weight: 700; font-size: 11.5pt; padding-top: 5pt; }
+            .clever-pdf .cp-total { display: flex; justify-content: space-between; align-items: baseline; margin-top: 10pt; padding: 8pt 12pt; border: 1.5px solid #1a1a1a; break-inside: avoid; page-break-inside: avoid; }
+            .clever-pdf .cp-total span:first-child { font-size: 10pt; letter-spacing: 1.2pt; text-transform: uppercase; font-weight: 600; }
+            .clever-pdf .cp-total span:last-child { font-size: 18pt; font-weight: 700; }
+            .clever-pdf .cp-note { margin-top: 8pt; padding: 5pt 10pt; border: 1px solid #bbb; font-size: 9pt; font-weight: 600; text-align: center; break-inside: avoid; }
+            .clever-pdf ul { margin: 8pt 0 0; padding-left: 12pt; font-size: 7.5pt; line-height: 1.4; }
+            .clever-pdf ul li { margin-bottom: 2pt; }
+            .clever-pdf .cp-foot { margin-top: 8pt; padding-top: 6pt; border-top: 1px solid #ccc; font-size: 8.5pt; text-align: center; break-inside: avoid; }
+        }
+
         @media print {
             * {
                 -webkit-print-color-adjust: exact !important;
@@ -1298,6 +1345,24 @@
                 setCfSubmitting(false);
             };
 
+            // "Download PDF" on a submitted Clever net sheet. The browser's own Save as PDF
+            // prints .clever-pdf (see the stylesheet). The body class is what switches the
+            // print layout, and the document title is what the browser offers as a file name.
+            const handleCleverPdf = () => {
+                const prevTitle = document.title;
+                let addr = String(result?.address || '');
+                try { addr = decodeURIComponent(addr); } catch (e) {}
+                document.body.classList.add('clever-pdf-mode');
+                document.title = ('Zoom Casa Net Sheet - ' + addr).replace(/[\\/:*?"<>|]+/g, ' ').trim();
+                const restore = () => {
+                    document.body.classList.remove('clever-pdf-mode');
+                    document.title = prevTitle;
+                    window.removeEventListener('afterprint', restore);
+                };
+                window.addEventListener('afterprint', restore);
+                window.print();
+            };
+
             const handleOpenSubmitProperty = () => {
                 setSpName((prospect?.name || name || '').trim());
                 setSpEmail((prospect?.email || email || '').trim());
@@ -1618,10 +1683,10 @@ Initial Estimate - Schedule a Meeting for Final Figures.`;
 
 
             return (
-                <div style={{ position: 'relative', minHeight: '100vh' }}>
+                <div className="zc-root" style={{ position: 'relative', minHeight: '100vh' }}>
                     {source !== 'momshouse' && source !== 'skool' && source !== 'ezhomesearch' && <BackgroundEffects />}
                     
-                    <div style={{
+                    <div className="zc-shell" style={{
                         position: 'relative',
                         zIndex: 1,
                         maxWidth: '580px',
@@ -1629,7 +1694,7 @@ Initial Estimate - Schedule a Meeting for Final Figures.`;
                         padding: '60px 24px'
                     }}>
                         {/* Header */}
-                        <div className="animate-in" style={{ textAlign: 'center', marginBottom: '48px' }}>
+                        <div className="animate-in zc-screen-header" style={{ textAlign: 'center', marginBottom: '48px' }}>
                             {/* Full logo for desktop */}
                             <img
                                 className="logo-full"
@@ -1929,7 +1994,7 @@ Initial Estimate - Schedule a Meeting for Final Figures.`;
 
                         {/* Results */}
                         {result && (
-                            <div ref={printRef} className="print-container">
+                            <div ref={printRef} className={'print-container' + (isClever && cfSubmitted ? ' clever-done' : '')}>
                                 {/* Print Header - Only shows in print */}
                                 <div className="print-only print-header" style={{ display: 'none' }}>
                                     <img
@@ -1956,7 +2021,7 @@ Initial Estimate - Schedule a Meeting for Final Figures.`;
                                     either way the lead goes to the CRM lane netsheet-clever. */}
                                 {isClever && (
                                 <div
-                                    className="animate-in no-print"
+                                    className="animate-in no-print clever-submit-card"
                                     style={{
                                         background: 'var(--bg-card)',
                                         borderRadius: '20px',
@@ -1974,26 +2039,48 @@ Initial Estimate - Schedule a Meeting for Final Figures.`;
                                             <p style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
                                                 Thanks{cfName ? ', ' + cfName.trim().split(' ')[0] : ''}! Our team will reach out to finalise your offer.
                                             </p>
-                                            <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '14px', marginBottom: '14px' }}>
-                                                Want a firm offer sooner? Book a call with our team.
-                                            </p>
-                                            <a
-                                                href={BOOKING_LINK_CLEVER}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                style={{
-                                                    display: 'inline-block',
-                                                    padding: '13px 26px',
-                                                    background: 'var(--btn-primary)',
-                                                    borderRadius: '12px',
-                                                    color: 'white',
-                                                    fontSize: '14px',
-                                                    fontWeight: 600,
-                                                    textDecoration: 'none'
-                                                }}
-                                            >
-                                                📅 Book a Call
-                                            </a>
+                                            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap', marginTop: '22px' }}>
+                                                <a
+                                                    href={BOOKING_LINK_CLEVER}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    style={{
+                                                        flex: '1 1 180px',
+                                                        maxWidth: '230px',
+                                                        padding: '14px 18px',
+                                                        background: 'var(--btn-primary)',
+                                                        border: '1px solid transparent',
+                                                        borderRadius: '12px',
+                                                        color: 'white',
+                                                        fontSize: '15px',
+                                                        fontWeight: 600,
+                                                        textAlign: 'center',
+                                                        textDecoration: 'none',
+                                                        boxSizing: 'border-box'
+                                                    }}
+                                                >
+                                                    📅 Book a Call
+                                                </a>
+                                                <button
+                                                    onClick={handleCleverPdf}
+                                                    style={{
+                                                        flex: '1 1 180px',
+                                                        maxWidth: '230px',
+                                                        padding: '14px 18px',
+                                                        background: 'transparent',
+                                                        border: '1px solid var(--border-accent)',
+                                                        borderRadius: '12px',
+                                                        color: 'var(--text-primary)',
+                                                        fontSize: '15px',
+                                                        fontWeight: 600,
+                                                        fontFamily: 'inherit',
+                                                        cursor: 'pointer',
+                                                        boxSizing: 'border-box'
+                                                    }}
+                                                >
+                                                    ⬇ Download PDF
+                                                </button>
+                                            </div>
                                         </div>
                                     ) : (
                                         <React.Fragment>
@@ -2030,6 +2117,99 @@ Initial Estimate - Schedule a Meeting for Final Figures.`;
                                             </button>
                                         </React.Fragment>
                                     )}
+                                </div>
+                                )}
+
+                                {/* The paper version of a Clever net sheet. Hidden on screen; "Download PDF"
+                                    prints this and nothing else. Same numbers as the calculator above
+                                    (it reads `computed`), laid out as rows so nothing is cut mid-line. */}
+                                {isClever && computed && (
+                                <div className="clever-pdf">
+                                    <div className="cp-head">
+                                        <img className="cp-zc" src="Zoom Casa (white).png" alt="Zoom Casa" style={{ filter: 'invert(1)' }} />
+                                        <div className="cp-partner">
+                                            <span>In partnership with</span>
+                                            <img src="clever-logo.svg" alt="Clever" />
+                                        </div>
+                                    </div>
+                                    <h1>Cash Offer+ Net Sheet</h1>
+                                    <p className="cp-sub">Preliminary estimate · Prepared {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}{cfName.trim() ? ' · For ' + cfName.trim() : ''}</p>
+                                    <div className="cp-meta">
+                                        <div>
+                                            <p className="cp-label">Property</p>
+                                            <p className="cp-value">{(() => { try { return decodeURIComponent(result.address); } catch (e) { return result.address; } })()}</p>
+                                        </div>
+                                        <div>
+                                            <p className="cp-label">As-Is Value</p>
+                                            <p className="cp-value">{formatCurrency(computed.asIsValue)}</p>
+                                        </div>
+                                        <div>
+                                            <p className="cp-label">Est. Months to Sell</p>
+                                            <p className="cp-value">{monthsToSell}</p>
+                                        </div>
+                                    </div>
+
+                                    <h2>Sale #1 — Cash Offer</h2>
+                                    <table><tbody>
+                                        {[
+                                            ['Current As-Is Market Value', computed.asIsValue, ''],
+                                            ['Risk Holdback Escrow', -computed.riskReservePremium, `${(100 - initialAdvancePct).toFixed(1)}%`],
+                                            ['Est. Initial Advance', computed.initialAdvance, `${initialAdvancePct}%`],
+                                            ['Holdback - Renovations', renovationBudget ? -renovationBudget : null, ''],
+                                            ['Holdback - Resale Brokerage Commissions - Listing Agent', -computed.listingAgentCost, `${listingAgentPct}%`],
+                                            ["Holdback - Resale Brokerage Commissions - Buyer's Agent", -computed.buyersAgentCost, `${buyersAgentPct}%`],
+                                            ['Est. Holdback - Closing Costs - Resale Transaction', -computed.resaleClosingCosts, `${resaleClosingCostsPct}%`],
+                                            ['Holdback - Program Fee (Base)', -computed.programFeeBase, `${programFeeBasePct}%`],
+                                            ['Holdback - Program Fee (Carry)', -computed.programFeeCarry, `${programFeeCarryPct}%`],
+                                            ['Est. Mortgage / Debt Payoff', mortgageBalance ? -mortgageBalance : null, ''],
+                                            ['Est. Closing Costs - Purchase Transaction', -computed.closingCosts, `${closingCostsPct}%`]
+                                        ].map(([label, v, pct]) => (
+                                            <tr key={label}>
+                                                <td>{label}</td>
+                                                <td className="cp-pct">{pct}</td>
+                                                <td className="cp-amt">{v == null ? '—' : formatCurrency(v)}</td>
+                                            </tr>
+                                        ))}
+                                        <tr className="cp-sum">
+                                            <td>Est. Initial Net Proceeds</td>
+                                            <td className="cp-pct"></td>
+                                            <td className="cp-amt">{formatCurrency(computed.initialNetProceeds)}</td>
+                                        </tr>
+                                    </tbody></table>
+
+                                    <h2>Sale #2 — Cash Offer Plus</h2>
+                                    <table><tbody>
+                                        {[
+                                            ['Est. Resale Price - After Repair Value', computed.arv, ''],
+                                            ['Reimburse Zoom Casa Initial Advance', -computed.reimburse, ''],
+                                            ['Credit - Unused Carry Program Fee', computed.unusedCarryCredit, `${Math.max(0, monthsToSell - actualMonthsToSell)}/${monthsToSell}`]
+                                        ].map(([label, v, pct]) => (
+                                            <tr key={label}>
+                                                <td>{label}</td>
+                                                <td className="cp-pct">{pct}</td>
+                                                <td className="cp-amt">{formatCurrency(v)}</td>
+                                            </tr>
+                                        ))}
+                                        <tr className="cp-sum">
+                                            <td>Additional Net Proceeds</td>
+                                            <td className="cp-pct"></td>
+                                            <td className="cp-amt">{formatCurrency(computed.additionalNetProceeds)}</td>
+                                        </tr>
+                                    </tbody></table>
+
+                                    <div className="cp-total">
+                                        <span>Total Net Proceeds</span>
+                                        <span>{formatCurrency(computed.totalNetProceeds)}</span>
+                                    </div>
+                                    <div className="cp-note">Initial Estimate - Schedule a Meeting for Final Figures</div>
+                                    <ul>
+                                        <li>This net sheet is an estimate only and is not a guarantee of final proceeds. Actual amounts may vary based on property inspection, title search, market conditions, and other factors discovered during due diligence.</li>
+                                        <li>All holdbacks shown are held in escrow and applied toward their designated purpose. Unused portions of any holdback (except the Program Fee) are returned to the seller at resale closing.</li>
+                                        <li>The Carry Program Fee is calculated at 0.75% per month based on the estimated {monthsToSell}-month sale ({programFeeCarryPct}% total). If the actual time to sell ({actualMonthsToSell} mo) is shorter than estimated, the unused carry portion ({Math.max(0, monthsToSell - actualMonthsToSell)}/{monthsToSell}) is credited back to the seller on a pro-rata basis (shown as "Credit - Unused Carry Program Fee").</li>
+                                    </ul>
+                                    <div className="cp-foot">
+                                        Questions? Contact Zoom Casa · (747) 688-9904 · info@zoomcasa.com · www.zoomcasa.com
+                                    </div>
                                 </div>
                                 )}
 
