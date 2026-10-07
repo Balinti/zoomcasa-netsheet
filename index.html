@@ -1026,6 +1026,15 @@
             const [cfErrors, setCfErrors] = useState({});
             const [cfSubmitting, setCfSubmitting] = useState(false);
             const [cfSubmitted, setCfSubmitted] = useState(false);
+            // A Clever net sheet is submitted once. The flag is kept per property in this
+            // browser so reopening the same link shows "Offer Submitted", not a fresh form.
+            // Storage can be unavailable (private window, blocked site data): the page then
+            // still locks for the rest of the visit, it just cannot remember across reloads.
+            const cleverSubmitKey = (addr) => {
+                let a = String(addr || '');
+                try { a = decodeURIComponent(a); } catch (e) {}
+                return 'zc_clever_submitted:' + a.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+            };
 
             // Editable percentages
             const [initialAdvancePct, setInitialAdvancePct] = useState(85);
@@ -1225,7 +1234,24 @@
                 referral: CLEVER_SOURCE_LABEL,
                 tags: ['clever']
             });
+            // Held from the first click until the lead is in. Released only if the send failed,
+            // so the agent can try again; a successful send keeps it for good.
+            const cleverSendLock = useRef(false);
+            const markCleverSubmitted = () => {
+                cleverSendLock.current = true;
+                setCfSubmitted(true);
+                try {
+                    localStorage.setItem(cleverSubmitKey(result?.address), JSON.stringify({
+                        name: cfName.trim(),
+                        at: new Date().toISOString()
+                    }));
+                } catch (e) {}
+            };
             const handleCleverFinalise = async () => {
+                // One submission per net sheet. The ref is what stops a burst of clicks:
+                // state only updates on the next render, so two clicks in the same tick both
+                // see cfSubmitting === false and both send.
+                if (cleverSendLock.current || cfSubmitted) return;
                 const errs = {};
                 if (!cfName.trim()) errs.name = 'Name is required';
                 if (!cfEmail.trim()) errs.email = 'Email is required';
@@ -1233,6 +1259,7 @@
                 if (!cfPhone.trim()) errs.phone = 'Phone is required';
                 setCfErrors(errs);
                 if (Object.keys(errs).length) return;
+                cleverSendLock.current = true;
                 setCfSubmitting(true);
                 try {
                     if (cleverSig) {
@@ -1254,16 +1281,18 @@
                         if (data && data.ok) {
                             // HMAC already checked. Write the CRM lead only after that.
                             await postLeadToZc(cleverCrmPayload());
-                            setCfSubmitted(true);
+                            markCleverSubmitted();
                         } else {
+                            cleverSendLock.current = false;
                             setCfErrors({ form: 'We could not verify this link. Please contact us to finalise.' });
                         }
                     } else {
                         // Unsigned partner link: no signature. Same CRM lane as a signed one.
                         await postLeadToZc(cleverCrmPayload());
-                        setCfSubmitted(true);
+                        markCleverSubmitted();
                     }
                 } catch (err) {
+                    cleverSendLock.current = false;
                     setCfErrors({ form: 'Something went wrong. Please try again.' });
                 }
                 setCfSubmitting(false);
@@ -1399,6 +1428,17 @@
 
             const computed = computeSheet();
 
+            useEffect(() => {
+                if (!isClever || !result?.address) return;
+                try {
+                    const saved = JSON.parse(localStorage.getItem(cleverSubmitKey(result.address)) || 'null');
+                    if (saved) {
+                        if (saved.name) setCfName(saved.name);
+                        setCfSubmitted(true);
+                    }
+                } catch (e) {}
+            }, [isClever, result?.address]);
+
             // When the seller adjusts the As-Is value, push the modified numbers
             // to GHL (debounced) so the existing contact reflects the change.
             useEffect(() => {
@@ -1474,6 +1514,13 @@
                         const sheetResult = calculateSheet(asIs, resultData.address || address, afterRepairValue || asIs);
                         // Trigger webhook with prospect and result data
                         triggerWebhook(prospectData, sheetResult);
+                        // A Clever link with no address lands on the contact form instead of
+                        // the sheet. That form has just sent the lead, so the sheet that
+                        // follows must not ask for it a second time.
+                        if (isClever) {
+                            setCfName(prospectData.name);
+                            setCfSubmitted(true);
+                        }
                     } else {
                         setGlobalError('Could not retrieve valuation for this address');
                     }
@@ -1903,6 +1950,89 @@ Initial Estimate - Schedule a Meeting for Final Figures.`;
                                     </p>
                                 </div>
 
+                                {/* Clever: Submit & Finalise Offer -- the ONE place a Clever net sheet
+                                    captures a lead, and the first thing on the page so nobody has to
+                                    scroll to find it. Signed links are checked by clever-lead first;
+                                    either way the lead goes to the CRM lane netsheet-clever. */}
+                                {isClever && (
+                                <div
+                                    className="animate-in no-print"
+                                    style={{
+                                        background: 'var(--bg-card)',
+                                        borderRadius: '20px',
+                                        padding: '28px',
+                                        marginBottom: '16px',
+                                        border: '1px solid var(--border-accent)'
+                                    }}
+                                >
+                                    {cfSubmitted ? (
+                                        <div style={{ textAlign: 'center', padding: '12px 0' }}>
+                                            <div style={{ fontSize: '42px', marginBottom: '10px' }}>✅</div>
+                                            <h3 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '8px' }}>
+                                                Offer Submitted
+                                            </h3>
+                                            <p style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
+                                                Thanks{cfName ? ', ' + cfName.trim().split(' ')[0] : ''}! Our team will reach out to finalise your offer.
+                                            </p>
+                                            <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '14px', marginBottom: '14px' }}>
+                                                Want a firm offer sooner? Book a call with our team.
+                                            </p>
+                                            <a
+                                                href={BOOKING_LINK_CLEVER}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                style={{
+                                                    display: 'inline-block',
+                                                    padding: '13px 26px',
+                                                    background: 'var(--btn-primary)',
+                                                    borderRadius: '12px',
+                                                    color: 'white',
+                                                    fontSize: '14px',
+                                                    fontWeight: 600,
+                                                    textDecoration: 'none'
+                                                }}
+                                            >
+                                                📅 Book a Call
+                                            </a>
+                                        </div>
+                                    ) : (
+                                        <React.Fragment>
+                                            <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '6px' }}>
+                                                Submit &amp; Finalise Offer
+                                            </h3>
+                                            <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '20px' }}>
+                                                Confirm your details and our team will finalise your cash offer.
+                                            </p>
+                                            <GlowInput value={cfName} onChange={(e) => setCfName(e.target.value)} placeholder="John Smith" label="Full Name" required error={cfErrors.name} />
+                                            <GlowInput type="tel" value={cfPhone} onChange={(e) => setCfPhone(e.target.value)} placeholder="(555) 123-4567" label="Phone Number" required error={cfErrors.phone} />
+                                            <GlowInput type="email" value={cfEmail} onChange={(e) => setCfEmail(e.target.value)} placeholder="john@example.com" label="Email Address" required error={cfErrors.email} />
+                                            {cfErrors.form && (
+                                                <p style={{ fontSize: '13px', color: '#ef4444', marginBottom: '12px' }}>{cfErrors.form}</p>
+                                            )}
+                                            <button
+                                                onClick={handleCleverFinalise}
+                                                disabled={cfSubmitting}
+                                                style={{
+                                                    width: '100%',
+                                                    marginTop: '8px',
+                                                    padding: '16px',
+                                                    background: cfSubmitting ? 'var(--bg-elevated)' : 'var(--accent-green)',
+                                                    border: 'none',
+                                                    borderRadius: '12px',
+                                                    color: 'white',
+                                                    fontSize: '15px',
+                                                    fontWeight: 600,
+                                                    cursor: cfSubmitting ? 'default' : 'pointer',
+                                                    opacity: cfSubmitting ? 0.7 : 1
+                                                }}
+                                            >
+                                                {cfSubmitting ? 'Submitting…' : 'Submit & Finalise Offer'}
+                                            </button>
+                                        </React.Fragment>
+                                    )}
+                                </div>
+                                )}
+
                                 {/* Prospect Info - Shows in both screen and print */}
                                 {prospect && (
                                     <div className="animate-in" style={{
@@ -2136,88 +2266,6 @@ Initial Estimate - Schedule a Meeting for Final Figures.`;
                                     <LineItem label="Credit - Unused Carry Program Fee" value={computed.unusedCarryCredit} percentage={`${Math.max(0, monthsToSell - actualMonthsToSell)}/${monthsToSell}`} />
                                     <LineItem label="Additional Net Proceeds" value={computed.additionalNetProceeds} highlight large />
                                 </SectionCard>
-                                )}
-
-                                {/* Clever: Submit & Finalise Offer. Signed links are validated by
-                                    clever-lead; unsigned Clever links fall back to the standard
-                                    LeadConnector webhook so partner links still capture the lead. */}
-                                {isClever && (
-                                <div
-                                    className="animate-in delay-4"
-                                    style={{
-                                        background: 'var(--bg-card)',
-                                        borderRadius: '20px',
-                                        padding: '28px',
-                                        marginBottom: '16px',
-                                        border: '1px solid var(--border-accent)'
-                                    }}
-                                >
-                                    {cfSubmitted ? (
-                                        <div style={{ textAlign: 'center', padding: '12px 0' }}>
-                                            <div style={{ fontSize: '42px', marginBottom: '10px' }}>✅</div>
-                                            <h3 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '8px' }}>
-                                                Offer Submitted
-                                            </h3>
-                                            <p style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
-                                                Thanks{cfName ? ', ' + cfName.trim().split(' ')[0] : ''}! Our team will reach out to finalise your offer.
-                                            </p>
-                                            <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '14px', marginBottom: '14px' }}>
-                                                Want a firm offer sooner? Book a call with our team.
-                                            </p>
-                                            <a
-                                                href={BOOKING_LINK_CLEVER}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                style={{
-                                                    display: 'inline-block',
-                                                    padding: '13px 26px',
-                                                    background: 'var(--btn-primary)',
-                                                    borderRadius: '12px',
-                                                    color: 'white',
-                                                    fontSize: '14px',
-                                                    fontWeight: 600,
-                                                    textDecoration: 'none'
-                                                }}
-                                            >
-                                                📅 Book a Call
-                                            </a>
-                                        </div>
-                                    ) : (
-                                        <React.Fragment>
-                                            <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '6px' }}>
-                                                Submit &amp; Finalise Offer
-                                            </h3>
-                                            <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '20px' }}>
-                                                Confirm your details and our team will finalise your cash offer.
-                                            </p>
-                                            <GlowInput value={cfName} onChange={(e) => setCfName(e.target.value)} placeholder="John Smith" label="Full Name" required error={cfErrors.name} />
-                                            <GlowInput type="tel" value={cfPhone} onChange={(e) => setCfPhone(e.target.value)} placeholder="(555) 123-4567" label="Phone Number" required error={cfErrors.phone} />
-                                            <GlowInput type="email" value={cfEmail} onChange={(e) => setCfEmail(e.target.value)} placeholder="john@example.com" label="Email Address" required error={cfErrors.email} />
-                                            {cfErrors.form && (
-                                                <p style={{ fontSize: '13px', color: '#ef4444', marginBottom: '12px' }}>{cfErrors.form}</p>
-                                            )}
-                                            <button
-                                                onClick={handleCleverFinalise}
-                                                disabled={cfSubmitting}
-                                                style={{
-                                                    width: '100%',
-                                                    marginTop: '8px',
-                                                    padding: '16px',
-                                                    background: cfSubmitting ? 'var(--bg-elevated)' : 'var(--accent-green)',
-                                                    border: 'none',
-                                                    borderRadius: '12px',
-                                                    color: 'white',
-                                                    fontSize: '15px',
-                                                    fontWeight: 600,
-                                                    cursor: cfSubmitting ? 'default' : 'pointer',
-                                                    opacity: cfSubmitting ? 0.7 : 1
-                                                }}
-                                            >
-                                                {cfSubmitting ? 'Submitting…' : 'Submit & Finalise Offer'}
-                                            </button>
-                                        </React.Fragment>
-                                    )}
-                                </div>
                                 )}
 
                                 {/* Clever: How to Finalize an Offer */}
@@ -2516,7 +2564,11 @@ Initial Estimate - Schedule a Meeting for Final Figures.`;
                                     </p>
                                 </div>
 
-                                {/* Submit the Property - primary CTA (hidden in print) */}
+                                {/* Submit the Property - primary CTA (hidden in print).
+                                    Not on a Clever net sheet: there the form at the top of the
+                                    page is the only place to submit, so a lead cannot be sent
+                                    twice from two different spots. */}
+                                {!isClever && (
                                 <button
                                     className="animate-in delay-5 no-print"
                                     onClick={handleOpenSubmitProperty}
@@ -2540,9 +2592,12 @@ Initial Estimate - Schedule a Meeting for Final Figures.`;
                                         multi-button layout. */}
                                     🏠 Submit Offer / Get More Details
                                 </button>
+                                )}
 
 
-                                {/* New Calculation Button */}
+                                {/* New Calculation Button. Not on a Clever net sheet: it leads to the
+                                    contact form, which is a second way to submit a lead. */}
+                                {!isClever && (
                                 <button
                                     className="no-print"
                                     onClick={() => {
@@ -2586,9 +2641,10 @@ Initial Estimate - Schedule a Meeting for Final Figures.`;
                                 >
                                     ← New Calculation
                                 </button>
+                                )}
 
                                 {/* Submit the Property Modal */}
-                                {submitPropertyOpen && (
+                                {submitPropertyOpen && !isClever && (
                                     <div
                                         className="no-print"
                                         onClick={() => setSubmitPropertyOpen(false)}
