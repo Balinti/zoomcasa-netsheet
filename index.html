@@ -2643,6 +2643,35 @@ Initial Estimate - Schedule a Meeting for Final Figures.`;
                                 </button>
                                 )}
 
+                                {/* Clever net sheets have no New Calculation button, so this is the
+                                    page's way out: the Zoom Casa website, in a new tab so the net
+                                    sheet stays open. */}
+                                {isClever && (
+                                <a
+                                    className="no-print"
+                                    href="https://zoomcasa.com"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    style={{
+                                        display: 'block',
+                                        width: '100%',
+                                        marginTop: '16px',
+                                        padding: '14px',
+                                        background: 'transparent',
+                                        border: '1px solid var(--border-accent)',
+                                        borderRadius: '12px',
+                                        color: 'var(--text-secondary)',
+                                        fontSize: '14px',
+                                        textAlign: 'center',
+                                        textDecoration: 'none',
+                                        boxSizing: 'border-box',
+                                        transition: 'all 0.2s ease'
+                                    }}
+                                >
+                                    Visit the Zoom Casa website →
+                                </a>
+                                )}
+
                                 {/* Submit the Property Modal */}
                                 {submitPropertyOpen && !isClever && (
                                     <div
