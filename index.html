@@ -1306,6 +1306,12 @@
             // Open the "Submit the Property" modal, pre-filling any known contact info
             // Clever "Submit & Finalise Offer". Signed links are checked by clever-lead
             // first; the CRM write uses the netsheet-clever key either way.
+            // "Revised" means the agent moved one of the two values we supplied: the as-is
+            // value or the after-repair value. Mortgage, renovation and months are the agent's
+            // own inputs, sent as they are, and do not count as a revision of our numbers.
+            const cleverRevised = () =>
+                (adjustedValue != null && Number(adjustedValue) !== Number(result?.asIsValue)) ||
+                (Number(afterRepairValue) > 0 && Number(afterRepairValue) !== Number(result?.afterRepairValue));
             const cleverCrmPayload = () => ({
                 name: cfName.trim(),
                 email: cfEmail.trim(),
@@ -1318,11 +1324,20 @@
                 afterRepairValue: Number(afterRepairValue) > 0 ? afterRepairValue : result?.afterRepairValue,
                 mortgageBalance: mortgageBalance,
                 renovationBudget: renovationBudget,
+                // What the agent changed before submitting. asIsValue above stays the value
+                // we gave Clever, so the CRM can see both the original and the revision; the
+                // keys are the same ones the other net sheet forms already send.
+                modified: cleverRevised(),
+                modifiedAsIsValue: adjustedValue != null ? adjustedValue : null,
+                modifiedTotalNetProceeds: (cleverRevised() && computed) ? computed.totalNetProceeds : null,
+                totalNetProceeds: computed ? computed.totalNetProceeds : null,
+                monthsToSell: monthsToSell,
+                actualMonthsToSell: actualMonthsToSell,
                 smsConsent: false,
                 timestamp: new Date().toISOString(),
                 source: CLEVER_SOURCE_LABEL,
                 referral: CLEVER_SOURCE_LABEL,
-                tags: ['clever']
+                tags: cleverRevised() ? ['clever', 'numbers-modified'] : ['clever']
             });
             // Held from the first click until the lead is in. Released only if the send failed,
             // so the agent can try again; a successful send keeps it for good.
